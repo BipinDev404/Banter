@@ -40,6 +40,16 @@ service cloud.firestore {
         data.lastSeen == request.time;
     }
 
+    // Typing validation helper
+    function isValidTyping(data) {
+      return data.keys().hasAll(['sessionId', 'userName', 'isTyping', 'lastTyped']) &&
+        data.keys().hasOnly(['sessionId', 'userName', 'isTyping', 'lastTyped']) &&
+        data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 128 &&
+        data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 20 &&
+        data.isTyping is bool &&
+        data.lastTyped == request.time;
+    }
+
     // Collection: messages
     match /messages/{messageId} {
       allow list: if true;
@@ -54,6 +64,16 @@ service cloud.firestore {
       allow get: if isValidId(sessionId);
       allow create, update: if isValidId(sessionId) && 
                             isValidPresence(incoming()) && 
+                            incoming().sessionId == sessionId;
+      allow delete: if isValidId(sessionId);
+    }
+
+    // Collection: typing
+    match /typing/{sessionId} {
+      allow list: if true;
+      allow get: if isValidId(sessionId);
+      allow create, update: if isValidId(sessionId) && 
+                            isValidTyping(incoming()) && 
                             incoming().sessionId == sessionId;
       allow delete: if isValidId(sessionId);
     }

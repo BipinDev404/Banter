@@ -60,6 +60,35 @@
         }
       },
       "required": ["sessionId", "userName", "connectedAt", "lastSeen"]
+    },
+    "TypingStatus": {
+      "title": "TypingStatus",
+      "description": "Real-time typing status of connected users",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Unique session ID of user",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name of typing user",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "isTyping": {
+          "type": "boolean",
+          "description": "Whether the user is currently inputting text"
+        },
+        "lastTyped": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of typing event"
+        }
+      },
+      "required": ["sessionId", "userName", "isTyping", "lastTyped"]
     }
   },
   "firestore": {
@@ -70,6 +99,10 @@
     "/presence/{sessionId}": {
       "schema": "Presence",
       "description": "Active presence sessions for online count"
+    },
+    "/typing/{sessionId}": {
+      "schema": "TypingStatus",
+      "description": "Active typing indicators for real-time chat"
     }
   }
 }

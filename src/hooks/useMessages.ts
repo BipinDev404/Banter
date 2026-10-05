@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   collection,
   query,
@@ -19,12 +19,23 @@ interface UseMessagesProps {
 }
 
 export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [firestoreMessages, setFirestoreMessages] = useState<ChatMessage[]>([]);
   const [messageLimit, setMessageLimit] = useState<number>(50);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Local reactions map (messageId -> string[] of emojis)
+  const [reactionsMap, setReactionsMap] = useState<Record<string, string[]>>(() => {
+    try {
+      const saved = localStorage.getItem('banter_reactions_map');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return {};
+  });
 
   // Rate limiting tracker
   const lastSentTimeRef = useRef<number>(0);
@@ -38,7 +49,7 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
     };
     const handleOffline = () => {
       setIsOffline(true);
-      setErrorMessage("You're offline. Trying to reconnect...");
+      setErrorMessage("You're offline. Reconnecting...");
     };
 
     window.addEventListener('online', handleOnline);
@@ -50,13 +61,12 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
     };
   }, []);
 
-  // Listen to messages from Firestore
+  // Listen to live messages from Firestore
   useEffect(() => {
     if (!enabled) return;
 
     setLoading(true);
     const messagesCol = collection(db, 'messages');
-    // Fetch latest N messages ordered by createdAt desc, then we reverse for display
     const q = query(messagesCol, orderBy('createdAt', 'desc'), limit(messageLimit));
 
     const unsubscribe = onSnapshot(
@@ -78,25 +88,49 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
           });
         });
 
-        // If returned items equal current limit, there might be more
         setHasMore(snapshot.docs.length >= messageLimit);
-
-        // Reverse so chronologically oldest is top, newest is bottom
+        // Chronological order: oldest at top, newest at bottom
         loaded.reverse();
-        setMessages(loaded);
+        setFirestoreMessages(loaded);
         setLoading(false);
         setErrorMessage(null);
       },
       (error) => {
         setLoading(false);
         console.error('Messages subscription error:', error);
-        setErrorMessage("Connection issue. Trying to reconnect...");
+        setErrorMessage('Connection issue. Reconnecting...');
         handleFirestoreError(error, OperationType.LIST, 'messages');
       }
     );
 
     return () => unsubscribe();
   }, [enabled, messageLimit]);
+
+  // Map user reactions to live messages
+  const messages = useMemo(() => {
+    return firestoreMessages.map((msg) => ({
+      ...msg,
+      reactions: reactionsMap[msg.id] || msg.reactions || [],
+    }));
+  }, [firestoreMessages, reactionsMap]);
+
+  // Toggle reaction (Tapback)
+  const toggleReaction = useCallback((messageId: string, emoji: string) => {
+    setReactionsMap((prev) => {
+      const current = prev[messageId] || [];
+      const updated = current.includes(emoji)
+        ? current.filter((e) => e !== emoji)
+        : [...current, emoji];
+
+      const newMap = { ...prev, [messageId]: updated };
+      try {
+        localStorage.setItem('banter_reactions_map', JSON.stringify(newMap));
+      } catch (e) {
+        console.error(e);
+      }
+      return newMap;
+    });
+  }, []);
 
   // Send message
   const sendMessage = useCallback(
@@ -107,21 +141,20 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
       }
 
       if (trimmed.length > 500) {
-        setErrorMessage('Message too long (maximum 500 characters).');
+        setErrorMessage('Message too long (max 500 characters).');
         return false;
       }
 
       // Rate limit protection
       const now = Date.now();
-      if (now - lastSentTimeRef.current < 500) {
+      if (now - lastSentTimeRef.current < 400) {
         setErrorMessage('Sending too fast! Please slow down.');
         return false;
       }
 
-      // Max 5 messages in 5 seconds
       const fiveSecsAgo = now - 5000;
       recentSendsRef.current = recentSendsRef.current.filter((t) => t > fiveSecsAgo);
-      if (recentSendsRef.current.length >= 5) {
+      if (recentSendsRef.current.length >= 6) {
         setErrorMessage('Slow down a bit! You are sending messages too quickly.');
         return false;
       }
@@ -130,7 +163,6 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
       recentSendsRef.current.push(now);
       setErrorMessage(null);
 
-      // Generate a clean valid ID matching /^[a-zA-Z0-9_\-]+$/
       const cleanMessageId =
         'msg_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
 
@@ -144,7 +176,7 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
         isOptimistic: true,
       };
 
-      setMessages((prev) => [...prev, optimisticMsg]);
+      setFirestoreMessages((prev) => [...prev, optimisticMsg]);
 
       try {
         const msgDocRef = doc(db, 'messages', cleanMessageId);
@@ -157,8 +189,7 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
         return true;
       } catch (err) {
         console.error('Error sending message:', err);
-        // Remove optimistic message if failed
-        setMessages((prev) => prev.filter((m) => m.id !== cleanMessageId));
+        setFirestoreMessages((prev) => prev.filter((m) => m.id !== cleanMessageId));
         setErrorMessage("Message couldn't be sent. Try again.");
         return false;
       }
@@ -173,6 +204,7 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
   return {
     messages,
     sendMessage,
+    toggleReaction,
     loading,
     hasMore,
     loadMoreMessages,

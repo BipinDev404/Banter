@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChatMessage, SystemNotification } from '../types';
+import { ChatMessage, SystemNotification, TypingUser } from '../types';
 import { MessageBubble } from './MessageBubble';
-import { ArrowDown, Loader2 } from 'lucide-react';
+import { TypingIndicator } from './TypingIndicator';
+import { ArrowDown, Loader2, MessageCircle } from 'lucide-react';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -10,30 +11,77 @@ interface MessageListProps {
   loading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+  onReact: (messageId: string, emoji: string) => void;
+  onReplyTo: (userName: string, textSnippet: string) => void;
+  typingUsers?: TypingUser[];
+  isDarkMode?: boolean;
+}
+
+// Format timestamps into Apple-style "Yesterday 11:35 AM", "Today 8:04 AM", or "Oct 4, 11:35 AM"
+function formatDividerDate(timestamp: number): string {
+  try {
+    const msgDate = new Date(timestamp);
+    const now = new Date();
+
+    const isToday =
+      msgDate.getDate() === now.getDate() &&
+      msgDate.getMonth() === now.getMonth() &&
+      msgDate.getFullYear() === now.getFullYear();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday =
+      msgDate.getDate() === yesterday.getDate() &&
+      msgDate.getMonth() === yesterday.getMonth() &&
+      msgDate.getFullYear() === yesterday.getFullYear();
+
+    const timeStr = msgDate.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+    if (isToday) {
+      return `Today ${timeStr}`;
+    }
+    if (isYesterday) {
+      return `Yesterday ${timeStr}`;
+    }
+
+    const monthStr = msgDate.toLocaleDateString([], {
+      month: 'short',
+      day: 'numeric',
+    });
+    return `${monthStr} ${timeStr}`;
+  } catch {
+    return '';
+  }
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
-  messages,
-  systemNotifications,
+  messages = [],
+  systemNotifications = [],
   currentUserId,
   loading,
   hasMore,
   onLoadMore,
+  onReact,
+  onReplyTo,
+  typingUsers = [],
+  isDarkMode = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const isFirstLoadRef = useRef(true);
 
-  // Auto-scroll logic: scroll to bottom on initial load and when near bottom
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     bottomRef.current?.scrollIntoView({ behavior });
   };
 
   useEffect(() => {
-    if (loading && messages.length === 0) return;
+    if (loading && (!messages || messages.length === 0)) return;
 
-    if (isFirstLoadRef.current && messages.length > 0) {
+    if (isFirstLoadRef.current && messages && messages.length > 0) {
       scrollToBottom('auto');
       isFirstLoadRef.current = false;
       return;
@@ -42,13 +90,12 @@ export const MessageList: React.FC<MessageListProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
-    // Check if user is scrolled near bottom (within 150px)
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
-    if (distanceFromBottom < 160) {
+    if (distanceFromBottom < 180) {
       scrollToBottom('smooth');
     }
-  }, [messages, loading]);
+  }, [messages, loading, typingUsers]);
 
   const handleScroll = () => {
     const container = containerRef.current;
@@ -59,112 +106,134 @@ export const MessageList: React.FC<MessageListProps> = ({
     setShowScrollBottom(distanceFromBottom > 240);
   };
 
-  // Combine messages and recent system notifications into a chronological stream
-  const combinedStream = React.useMemo(() => {
-    type StreamItem =
-      | { type: 'message'; data: ChatMessage; timestamp: number }
-      | { type: 'notification'; data: SystemNotification; timestamp: number };
-
-    const items: StreamItem[] = messages.map((m) => ({
-      type: 'message',
-      data: m,
-      timestamp: m.createdAt,
-    }));
-
-    // Only include system notifications that occurred after the earliest message or within last 10 minutes
-    const cutoff = messages.length > 0 ? messages[0].createdAt : Date.now() - 600000;
-    systemNotifications.forEach((n) => {
-      if (n.timestamp >= cutoff) {
-        items.push({
-          type: 'notification',
-          data: n,
-          timestamp: n.timestamp,
-        });
-      }
+  // Distinct participant names in this chat for mention highlighting (safely guarded)
+  const participantNames = React.useMemo(() => {
+    const names = new Set<string>();
+    (messages || []).forEach((m) => {
+      if (!m || typeof m.userName !== 'string') return;
+      const clean = m.userName.trim();
+      if (!clean) return;
+      const firstWord = clean.split(' ')[0];
+      if (firstWord) names.add(firstWord);
+      names.add(clean);
     });
+    return Array.from(names);
+  }, [messages]);
 
-    items.sort((a, b) => a.timestamp - b.timestamp);
-    return items;
-  }, [messages, systemNotifications]);
-
-  if (loading && messages.length === 0) {
+  if (loading && (!messages || messages.length === 0)) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 text-neutral-400">
-        <Loader2 className="w-6 h-6 animate-spin text-neutral-500 mb-2" />
-        <span className="text-sm font-medium tracking-tight">Connecting to Banter...</span>
+        <Loader2 className="w-6 h-6 animate-spin text-blue-500 mb-2" />
+        <span className="text-xs font-medium tracking-tight">Connecting to chat...</span>
       </div>
     );
   }
 
-  if (messages.length === 0) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center select-none">
-        <div className="max-w-sm px-6 py-8 rounded-2xl bg-neutral-900/40 border border-neutral-800/60">
-          <h2 className="text-2xl font-extrabold text-white mb-1.5 font-display tracking-tight text-balance">
-            Welcome to Banter
-          </h2>
-          <p className="text-neutral-400 text-sm mb-4 font-normal">
-            You&apos;re early.
-          </p>
-          <p className="text-xs text-indigo-400 font-display font-semibold tracking-wide uppercase">
-            Start the conversation.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const safeMessages = Array.isArray(messages) ? messages : [];
 
   return (
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-1 relative"
+      className={`flex-1 overflow-y-auto px-4 sm:px-8 py-5 relative ${
+        isDarkMode ? 'bg-[#121316] text-white' : 'bg-white text-neutral-900'
+      }`}
     >
-      {/* Load older messages button if available */}
-      {hasMore && (
-        <div className="flex justify-center pb-3">
-          <button
-            onClick={onLoadMore}
-            className="text-xs font-medium tracking-tight text-neutral-400 hover:text-white bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 px-3.5 py-1.5 rounded-full transition-colors cursor-pointer"
-          >
-            Load older messages
-          </button>
-        </div>
-      )}
+      <div className="max-w-3xl mx-auto w-full flex flex-col space-y-1 min-h-full">
+        {/* Load older messages button if available */}
+        {hasMore && (
+          <div className="flex justify-center pb-2">
+            <button
+              onClick={onLoadMore}
+              className={`text-xs font-medium px-3.5 py-1.5 rounded-full border transition-colors cursor-pointer ${
+                isDarkMode
+                  ? 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white'
+                  : 'bg-neutral-100 border-neutral-200 text-neutral-600 hover:text-black'
+              }`}
+            >
+              Load Earlier Messages
+            </button>
+          </div>
+        )}
 
-      {/* Message and system notice list */}
-      {combinedStream.map((item) => {
-        if (item.type === 'notification') {
+        {/* Empty State when no messages exist */}
+        {safeMessages.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center my-auto py-16 text-center select-none">
+            <div className="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-blue-500 mb-3 shadow-2xs">
+              <MessageCircle className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+              No messages yet
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-xs">
+              Send a message below to start the conversation!
+            </p>
+          </div>
+        ) : (
+          /* Render messages with intelligent iOS date dividers */
+          safeMessages.map((msg, index) => {
+            if (!msg) return null;
+            const prevMsg = index > 0 ? safeMessages[index - 1] : null;
+
+            // Show date divider if first message or if gap is > 30 minutes
+            const showDateDivider =
+              !prevMsg ||
+              Math.abs((msg.createdAt || 0) - (prevMsg?.createdAt || 0)) > 30 * 60 * 1000;
+
+            return (
+              <React.Fragment key={msg.id || index}>
+                {showDateDivider && msg.createdAt && (
+                  <div className="flex justify-center my-4 select-none">
+                    <span className="text-[11.5px] font-medium text-neutral-400 dark:text-neutral-500 tracking-tight">
+                      {formatDividerDate(msg.createdAt)}
+                    </span>
+                  </div>
+                )}
+
+                <MessageBubble
+                  message={msg}
+                  isSelf={msg.userId === currentUserId}
+                  onReact={onReact}
+                  onReplyTo={onReplyTo}
+                  isDarkMode={isDarkMode}
+                  allParticipantNames={participantNames}
+                />
+              </React.Fragment>
+            );
+          })
+        )}
+
+        {/* System notifications */}
+        {(systemNotifications || []).map((n) => {
+          if (!n) return null;
           return (
             <div
-              key={item.data.id}
-              className="flex justify-center my-2 text-[11px] font-mono font-medium tracking-tight text-neutral-500 select-none"
+              key={n.id}
+              className="flex justify-center my-2 text-[11px] font-medium text-neutral-400 dark:text-neutral-500 select-none"
             >
-              <span>{item.data.text}</span>
+              <span>{n.text}</span>
             </div>
           );
-        }
+        })}
 
-        const msg = item.data;
-        return (
-          <MessageBubble
-            key={msg.id}
-            message={msg}
-            isSelf={msg.userId === currentUserId}
-          />
-        );
-      })}
+        {/* Real-time Typing Indicator */}
+        <TypingIndicator typingUsers={typingUsers} isDarkMode={isDarkMode} />
 
-      <div ref={bottomRef} className="h-1" />
+        <div ref={bottomRef} className="h-3" />
+      </div>
 
       {/* Floating scroll to bottom button */}
       {showScrollBottom && (
         <button
           onClick={() => scrollToBottom('smooth')}
-          className="fixed bottom-20 right-6 p-2 rounded-full bg-neutral-800 hover:bg-neutral-700 text-neutral-200 shadow-lg border border-neutral-700/80 transition-all cursor-pointer z-20 flex items-center justify-center animate-in fade-in"
+          className={`fixed bottom-24 right-8 p-2.5 rounded-full shadow-lg border transition-all cursor-pointer z-30 flex items-center justify-center animate-in fade-in ${
+            isDarkMode
+              ? 'bg-neutral-800 border-neutral-700 text-white hover:bg-neutral-700'
+              : 'bg-white border-neutral-200 text-neutral-800 hover:bg-neutral-100'
+          }`}
           aria-label="Scroll to newest message"
         >
-          <ArrowDown className="w-4 h-4" />
+          <ArrowDown className="w-4 h-4 stroke-[2.5]" />
         </button>
       )}
     </div>

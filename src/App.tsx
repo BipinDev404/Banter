@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   getSessionId,
   getSavedUserName,
@@ -13,6 +13,7 @@ import {
 } from './lib/firebase';
 import { usePresence } from './hooks/usePresence';
 import { useMessages } from './hooks/useMessages';
+import { useTyping } from './hooks/useTyping';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ChatHeader } from './components/ChatHeader';
 import { MessageList } from './components/MessageList';
@@ -23,6 +24,10 @@ export default function App() {
   const [userName, setUserName] = useState<string>(() => getSavedUserName());
   const [isEntered, setIsEntered] = useState<boolean>(() => !!getSavedUserName());
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+
+  // Active inline reply target
+  const [replyTarget, setReplyTarget] = useState<{ userName: string; snippet?: string } | null>(null);
 
   // Unique session ID for this browser tab
   const sessionId = useMemo(() => getSessionId(), []);
@@ -43,6 +48,7 @@ export default function App() {
   const {
     messages,
     sendMessage,
+    toggleReaction,
     loading,
     hasMore,
     loadMoreMessages,
@@ -55,9 +61,23 @@ export default function App() {
     enabled: isEntered,
   });
 
-  const handleEnterChat = (name: string) => {
+  // Real-time typing status hook
+  const { typingUsers, notifyTyping, stopTyping } = useTyping({
+    sessionId,
+    userName,
+    enabled: isEntered,
+  });
+
+  const handleEnterChat = (name: string, avatarId?: string) => {
     const cleanName = name.trim();
     saveUserName(cleanName);
+    if (avatarId) {
+      try {
+        localStorage.setItem('banter_user_avatar', avatarId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
     setUserName(cleanName);
     setIsEntered(true);
   };
@@ -70,10 +90,21 @@ export default function App() {
 
   const handleClearData = () => {
     clearLocalData();
+    try {
+      localStorage.removeItem('banter_user_avatar');
+      localStorage.removeItem('banter_reactions_map');
+    } catch (e) {
+      console.error(e);
+    }
     setUserName('');
     setIsEntered(false);
     setIsSettingsOpen(false);
   };
+
+  const handleReplyTo = useCallback((senderName: string, textSnippet: string) => {
+    const firstName = senderName.split(' ')[0] || senderName;
+    setReplyTarget({ userName: firstName, snippet: textSnippet });
+  }, []);
 
   if (!isEntered) {
     return (
@@ -85,23 +116,30 @@ export default function App() {
   }
 
   return (
-    <div className="h-[100dvh] w-full max-w-4xl mx-auto flex flex-col bg-[#090a0f] text-neutral-100 overflow-hidden relative border-x border-neutral-800/40">
-      {/* Offline status notification */}
+    <div
+      className={`h-[100dvh] w-full flex flex-col overflow-hidden transition-colors ${
+        isDarkMode ? 'dark bg-[#121316] text-neutral-100' : 'bg-white text-neutral-900'
+      }`}
+    >
+      {/* Offline Alert */}
       {isOffline && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-300 text-xs px-4 py-2 text-center select-none font-medium tracking-tight">
-          You&apos;re offline. Trying to reconnect...
+        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs px-4 py-1.5 text-center select-none font-medium">
+          You&apos;re offline. Reconnecting to chat...
         </div>
       )}
 
-      {/* App Header */}
+      {/* Clean Chat Header */}
       <ChatHeader
         onlineCount={onlineCount}
         isOffline={isOffline}
-        onOpenSettings={() => setIsSettingsOpen(true)}
         userName={userName}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        typingUsers={typingUsers}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
       />
 
-      {/* Scrollable Chat Area */}
+      {/* Main Message Thread */}
       <MessageList
         messages={messages}
         systemNotifications={notifications}
@@ -109,23 +147,33 @@ export default function App() {
         loading={loading}
         hasMore={hasMore}
         onLoadMore={loadMoreMessages}
+        onReact={toggleReaction}
+        onReplyTo={handleReplyTo}
+        typingUsers={typingUsers}
+        isDarkMode={isDarkMode}
       />
 
-      {/* Pinned Bottom Input */}
+      {/* Clean Input Bar */}
       <MessageInput
         onSendMessage={sendMessage}
         disabled={isOffline}
         errorMessage={errorMessage}
         onClearError={clearError}
+        replyTarget={replyTarget}
+        onClearReply={() => setReplyTarget(null)}
+        onTyping={notifyTyping}
+        onStopTyping={stopTyping}
+        isDarkMode={isDarkMode}
       />
 
-      {/* Settings Modal */}
+      {/* Simple Profile Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         currentName={userName}
         onSaveName={handleSaveNewName}
         onClearData={handleClearData}
+        isDarkMode={isDarkMode}
       />
     </div>
   );

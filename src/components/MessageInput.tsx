@@ -1,11 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import { ArrowUp, X } from 'lucide-react';
 
 interface MessageInputProps {
   onSendMessage: (text: string) => Promise<boolean>;
   disabled?: boolean;
   errorMessage?: string | null;
   onClearError?: () => void;
+  replyTarget?: { userName: string; snippet?: string } | null;
+  onClearReply?: () => void;
+  onTyping?: () => void;
+  onStopTyping?: () => void;
+  isDarkMode?: boolean;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -13,27 +18,38 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   disabled = false,
   errorMessage,
   onClearError,
+  replyTarget,
+  onClearReply,
+  onTyping,
+  onStopTyping,
+  isDarkMode = false,
 }) => {
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-focus input on mount
+  // Focus input on mount or reply change
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [replyTarget]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = text.trim();
     if (!trimmed || isSending || disabled) return;
 
+    const fullMessage = replyTarget
+      ? `${replyTarget.userName} ${trimmed}`
+      : trimmed;
+
     setIsSending(true);
-    const success = await onSendMessage(trimmed);
+    const success = await onSendMessage(fullMessage);
     setIsSending(false);
 
     if (success) {
       setText('');
+      if (onStopTyping) onStopTyping();
+      if (onClearReply) onClearReply();
       inputRef.current?.focus();
     }
   };
@@ -42,66 +58,110 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+    } else if (e.key === 'Backspace' && text === '' && replyTarget && onClearReply) {
+      onClearReply();
     }
   };
 
-  const charCount = text.length;
-  const isNearLimit = charCount > 400;
+  const hasContent = text.trim().length > 0;
 
   return (
-    <div className="shrink-0 border-t border-neutral-800/80 bg-neutral-950/90 backdrop-blur-md px-4 sm:px-6 py-3 pb-safe z-10">
+    <div
+      className={`shrink-0 z-20 transition-colors ${
+        isDarkMode
+          ? 'bg-[#141518]/90 border-neutral-800/80'
+          : 'bg-white/95 border-neutral-200/80'
+      } backdrop-blur-xl border-t pb-safe`}
+    >
+      {/* Error notification if any */}
       {errorMessage && (
-        <div className="mb-2 px-3 py-1.5 rounded-lg bg-red-950/40 border border-red-900/60 text-red-300 text-xs flex items-center justify-between animate-in fade-in">
-          <span>{errorMessage}</span>
-          {onClearError && (
-            <button
-              onClick={onClearError}
-              className="text-red-400 hover:text-red-200 ml-2 text-xs font-semibold cursor-pointer"
-            >
-              Dismiss
-            </button>
-          )}
+        <div className="max-w-3xl mx-auto px-4 mt-2">
+          <div className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-xs flex items-center justify-between animate-in fade-in">
+            <span>{errorMessage}</span>
+            {onClearError && (
+              <button
+                onClick={onClearError}
+                className="text-red-600 dark:text-red-400 ml-2 font-semibold cursor-pointer"
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex items-center gap-2 max-w-4xl mx-auto relative">
-        <div className="flex-1 relative flex items-center">
+      {/* Main Input Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="px-4 py-3 flex items-center gap-2.5 relative max-w-3xl mx-auto w-full"
+      >
+        {/* Capsule Input Field */}
+        <div
+          className={`flex-1 rounded-full px-4 py-2 flex items-center min-h-[42px] transition-colors border ${
+            isDarkMode
+              ? 'bg-neutral-800 border-neutral-700 text-white focus-within:border-blue-500'
+              : 'bg-[#E9E9EB] border-transparent text-neutral-900 focus-within:border-blue-400 focus-within:bg-white shadow-2xs'
+          }`}
+        >
+          {/* Active Reply Tag */}
+          {replyTarget && (
+            <div className="flex items-center gap-1.5 mr-2 bg-blue-500/15 text-blue-600 dark:text-blue-400 px-2.5 py-0.5 rounded-full text-[13px] font-bold select-none shrink-0">
+              <span>{replyTarget.userName}</span>
+              <button
+                type="button"
+                onClick={onClearReply}
+                className="hover:opacity-75 cursor-pointer"
+                title="Cancel reply"
+              >
+                <X className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+            </div>
+          )}
+
           <input
             ref={inputRef}
             type="text"
             value={text}
             onChange={(e) => {
-              setText(e.target.value);
+              const val = e.target.value;
+              setText(val);
+              if (val.trim().length > 0) {
+                if (onTyping) onTyping();
+              } else {
+                if (onStopTyping) onStopTyping();
+              }
               if (errorMessage && onClearError) onClearError();
             }}
             onKeyDown={handleKeyDown}
             disabled={disabled || isSending}
-            placeholder={disabled ? "Offline..." : "Message..."}
+            placeholder={
+              replyTarget
+                ? `Replying to ${replyTarget.userName}...`
+                : disabled
+                ? 'Reconnecting...'
+                : 'Message...'
+            }
             maxLength={500}
-            className="w-full pl-4 pr-16 py-3 rounded-xl bg-neutral-900 border border-neutral-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-sm sm:text-base text-white placeholder-neutral-500 focus:outline-none transition-all disabled:opacity-50 tracking-[-0.011em]"
+            className="w-full bg-transparent text-[15px] focus:outline-none placeholder-neutral-400 font-normal tracking-[-0.015em]"
             autoComplete="off"
             autoCorrect="on"
           />
-
-          {isNearLimit && (
-            <span
-              className={`absolute right-3.5 text-[11px] font-mono tabular-nums select-none ${
-                charCount >= 490 ? 'text-red-400 font-bold' : 'text-neutral-400'
-              }`}
-            >
-              {charCount}/500
-            </span>
-          )}
         </div>
 
+        {/* Circular Upward Arrow Send Button */}
         <button
           type="submit"
-          disabled={!text.trim() || disabled || isSending}
-          className="h-11 px-4 sm:px-5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white font-display font-bold text-sm tracking-tight flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0 select-none shadow-sm shadow-indigo-950/50"
+          disabled={!hasContent || disabled || isSending}
+          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all select-none shrink-0 shadow-xs cursor-pointer ${
+            hasContent && !disabled && !isSending
+              ? 'bg-[#007AFF] text-white hover:bg-[#0071E3] active:scale-90'
+              : isDarkMode
+              ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
+              : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'
+          }`}
           aria-label="Send message"
         >
-          <span className="hidden sm:inline">Send</span>
-          <Send className="w-4 h-4" />
+          <ArrowUp className="w-4.5 h-4.5 stroke-[3]" />
         </button>
       </form>
     </div>

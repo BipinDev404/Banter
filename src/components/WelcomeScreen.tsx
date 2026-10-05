@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, MessageSquare } from 'lucide-react';
+import { PRESET_AVATARS } from '../lib/avatars';
 
 interface WelcomeScreenProps {
-  onEnter: (name: string) => void;
+  onEnter: (name: string, avatarId?: string) => void;
   initialName?: string;
 }
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onEnter, initialName = '' }) => {
-  const [name, setName] = useState(initialName);
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
+  onEnter,
+  initialName = '',
+}) => {
+  const [name, setName] = useState(initialName || '');
+  const [selectedAvatar, setSelectedAvatar] = useState('rody');
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -25,32 +30,62 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onEnter, initialNa
     }
 
     setError(null);
-    onEnter(trimmed);
+    onEnter(trimmed, selectedAvatar);
   };
 
   return (
-    <div className="min-h-screen min-h-[100dvh] w-full flex items-center justify-center p-4 bg-[#090a0f] relative overflow-hidden">
-      {/* Subtle ambient background glow */}
-      <div
-        className="absolute -top-32 left-1/2 -translate-x-1/2 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none"
-        aria-hidden="true"
-      />
-
-      {/* Centered card */}
-      <div className="w-full max-w-sm rounded-3xl bg-neutral-900/90 border border-neutral-800/80 p-8 sm:p-10 shadow-2xl relative z-10 backdrop-blur-md">
-        {/* Brand Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-white font-display mb-2 text-balance">
+    <div className="min-h-screen min-h-[100dvh] w-full flex items-center justify-center p-4 bg-gradient-to-b from-neutral-100 to-neutral-200 dark:from-neutral-900 dark:to-black relative select-none">
+      {/* Modal Card */}
+      <div className="w-full max-w-sm rounded-[36px] bg-white/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-800 p-7 sm:p-8 shadow-2xl relative z-10 backdrop-blur-xl">
+        {/* Simple Message Icon */}
+        <div className="text-center mb-6 flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-[#007AFF] text-white flex items-center justify-center shadow-lg shadow-blue-500/25 mb-4">
+            <MessageSquare className="w-8 h-8 stroke-[2.2]" />
+          </div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
             Banter
           </h1>
-          <p className="text-neutral-400 text-sm font-medium tracking-wide">
-            Talk. Laugh. Banter.
+          <p className="text-neutral-500 text-xs mt-1 font-medium">
+            Talk. Laugh. Banter. Real-time global chat.
           </p>
         </div>
 
-        {/* Name input form */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Avatar Picker */}
           <div>
+            <label className="block text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-2 text-center">
+              Choose Your Memoji
+            </label>
+            <div className="flex items-center justify-center gap-2 overflow-x-auto py-1">
+              {PRESET_AVATARS.slice(0, 5).map((av) => (
+                <button
+                  key={av.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAvatar(av.id);
+                    if (!name) {
+                      setName(av.name);
+                    }
+                  }}
+                  className={`w-11 h-11 rounded-full ${av.bgColor} flex items-center justify-center text-xl transition-all cursor-pointer ${
+                    selectedAvatar === av.id
+                      ? 'ring-2 ring-offset-2 ring-blue-500 scale-110 shadow-sm'
+                      : 'opacity-70 hover:opacity-100 hover:scale-105'
+                  }`}
+                  title={av.name}
+                >
+                  <span>{av.emoji}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Name input */}
+          <div>
+            <label className="block text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">
+              Your Display Name
+            </label>
             <div className="relative">
               <input
                 type="text"
@@ -61,38 +96,31 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onEnter, initialNa
                 }}
                 maxLength={20}
                 placeholder="Enter your name"
-                className="w-full px-4 py-3.5 rounded-2xl bg-neutral-950 border border-neutral-700/80 text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-base transition-all font-medium tracking-tight"
+                className="w-full px-4 py-3 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-white placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm font-medium transition-all"
                 autoFocus
-                autoComplete="nickname"
               />
-              {name.trim().length > 0 && (
-                <span className="absolute right-3.5 top-3.5 text-xs text-neutral-500 font-mono tabular-nums">
-                  {name.trim().length}/20
-                </span>
-              )}
             </div>
-
             {error && (
-              <p className="mt-2 text-xs text-red-400 font-medium animate-in fade-in">
+              <p className="mt-1.5 text-xs text-red-500 font-medium">
                 {error}
               </p>
             )}
           </div>
 
+          {/* Enter Button */}
           <button
             type="submit"
             disabled={!name.trim()}
-            className="w-full py-3.5 px-5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white font-display font-bold text-base tracking-tight transition-all flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed shadow-lg shadow-indigo-950/60"
+            className="w-full py-3 px-5 rounded-2xl bg-[#007AFF] hover:bg-[#0071E3] active:scale-98 disabled:opacity-40 text-white font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-blue-500/20"
           >
             <span>Enter Banter</span>
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>
 
-        {/* Footer info */}
-        <div className="mt-6 text-center">
-          <p className="text-xs text-neutral-500 tracking-normal select-none font-normal">
-            No account required.
+        <div className="mt-5 text-center">
+          <p className="text-[11px] text-neutral-400 font-normal">
+            No account required. Real-time anonymous banter.
           </p>
         </div>
       </div>
