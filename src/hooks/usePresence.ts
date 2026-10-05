@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   collection,
   doc,
@@ -10,6 +10,15 @@ import {
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { SystemNotification } from '../types';
+import { getAvatarForUser } from '../lib/avatars';
+import { OnlineUserItem } from '../components/OnlineUsersModal';
+
+export interface ActiveUserReader {
+  sessionId: string;
+  userName: string;
+  lastSeen: number;
+  lastReadAt: number;
+}
 
 interface UsePresenceOptions {
   sessionId: string;
@@ -17,13 +26,15 @@ interface UsePresenceOptions {
   enabled: boolean;
 }
 
-const TWO_MINUTES_MS = 2 * 60 * 1000; // 2 minutes auto-disappear for join/leave events
+const TWO_MINUTES_MS = 2 * 60 * 1000;
 const HEARTBEAT_INTERVAL_MS = 15 * 1000; // 15 seconds
 const TIMEOUT_THRESHOLD_MS = 45 * 1000; // 45 seconds offline threshold
 
 export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions) {
   const [onlineCount, setOnlineCount] = useState<number>(1);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
+  const [otherUsers, setOtherUsers] = useState<ActiveUserReader[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUserItem[]>([]);
 
   // Track sessions and their last known state
   const prevSessionsRef = useRef<Map<string, { userName: string; lastSeen: number }>>(new Map());
@@ -48,7 +59,6 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
         timestamp: now,
       };
 
-      // Keep only notices from the last 2 minutes, max 10
       const active = prev.filter((n) => now - n.timestamp < TWO_MINUTES_MS);
       return [...active, notice].slice(-10);
     });
@@ -67,7 +77,28 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
     return () => clearInterval(expireTimer);
   }, []);
 
-  // 2. Presence registration & heartbeat
+  // 2. Function to mark view as loaded / read
+  const markViewLoaded = useCallback(async () => {
+    if (!enabled || !userName || !sessionId) return;
+    try {
+      const presenceDocRef = doc(db, 'presence', sessionId);
+      await setDoc(
+        presenceDocRef,
+        {
+          sessionId,
+          userName: userName.slice(0, 20),
+          lastSeen: serverTimestamp(),
+          lastReadAt: serverTimestamp(),
+          connectedAt: connectedAtRef.current || serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch {
+      // non-blocking
+    }
+  }, [enabled, sessionId, userName]);
+
+  // 3. Presence registration & heartbeat
   useEffect(() => {
     if (!enabled || !userName || !sessionId) return;
 
@@ -79,6 +110,7 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
           sessionId,
           userName: userName.slice(0, 20),
           lastSeen: serverTimestamp(),
+          lastReadAt: serverTimestamp(),
         };
 
         if (isFirstTime || !connectedAtRef.current) {
@@ -101,11 +133,19 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
       registerPresence(false);
     }, HEARTBEAT_INTERVAL_MS);
 
+    // Refresh read state on window focus or visibility change
+    const handleFocus = () => {
+      markViewLoaded();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
     // Cleanup on window close or reload
     const handleLeave = () => {
       try {
         deleteDoc(presenceDocRef);
-      } catch (err) {
+      } catch {
         // non-blocking
       }
     };
@@ -115,13 +155,15 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
 
     return () => {
       clearInterval(heartbeatInterval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
       window.removeEventListener('beforeunload', handleLeave);
       window.removeEventListener('pagehide', handleLeave);
       handleLeave();
     };
-  }, [sessionId, userName, enabled]);
+  }, [sessionId, userName, enabled, markViewLoaded]);
 
-  // 3. Listen to all active presence docs in Firestore
+  // 4. Listen to all active presence docs in Firestore
   useEffect(() => {
     if (!enabled) return;
 
@@ -131,11 +173,15 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
       (snapshot) => {
         const now = Date.now();
         const currentActive = new Map<string, { userName: string; lastSeen: number; connectedAt?: number }>();
+        const readers: ActiveUserReader[] = [];
 
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const lastSeenTime = data.lastSeen?.toMillis ? data.lastSeen.toMillis() : now;
           const connectedTime = data.connectedAt?.toMillis ? data.connectedAt.toMillis() : now;
+          const lastReadTime = data.lastReadAt?.toMillis
+            ? data.lastReadAt.toMillis()
+            : lastSeenTime;
 
           if (docSnap.id === sessionId && data.connectedAt) {
             connectedAtRef.current = data.connectedAt;
@@ -148,6 +194,16 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
               lastSeen: lastSeenTime,
               connectedAt: connectedTime,
             });
+
+            // If another user, register their read position
+            if (docSnap.id !== sessionId) {
+              readers.push({
+                sessionId: docSnap.id,
+                userName: data.userName || 'Someone',
+                lastSeen: lastSeenTime,
+                lastReadAt: lastReadTime,
+              });
+            }
           } else if (now - lastSeenTime > 2 * 60 * 1000) {
             // Delete very stale presence documents (> 2 minutes inactive) to keep collection lean
             deleteDoc(docSnap.ref).catch(() => {});
@@ -157,6 +213,30 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
         // Always ensure at least 1 (self) is counted
         const total = Math.max(1, currentActive.size);
         setOnlineCount(total);
+        setOtherUsers(readers);
+
+        // Compile complete list of online users with colorful avatars
+        const userList: OnlineUserItem[] = [];
+        // Add self
+        userList.push({
+          sessionId,
+          userName: userName || 'You',
+          isSelf: true,
+          avatar: getAvatarForUser(sessionId, userName),
+        });
+
+        // Add other active participants
+        currentActive.forEach((user, sId) => {
+          if (sId !== sessionId) {
+            userList.push({
+              sessionId: sId,
+              userName: user.userName,
+              isSelf: false,
+              avatar: getAvatarForUser(sId, user.userName),
+            });
+          }
+        });
+        setOnlineUsers(userList);
 
         const prev = prevSessionsRef.current;
 
@@ -194,5 +274,5 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
     return () => unsubscribe();
   }, [enabled, sessionId]);
 
-  return { onlineCount, notifications };
+  return { onlineCount, notifications, otherUsers, onlineUsers, markViewLoaded };
 }

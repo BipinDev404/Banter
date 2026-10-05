@@ -89,7 +89,12 @@
   animation-delay: 0.4s;
 }
 
-/* Custom scrollbars */
+/* Disable native mobile long-press selection callout popups */
+.no-native-callout {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;

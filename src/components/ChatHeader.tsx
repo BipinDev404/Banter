@@ -8,6 +8,7 @@ interface ChatHeaderProps {
   isOffline?: boolean;
   userName: string;
   onOpenSettings: () => void;
+  onOpenOnlineUsers?: () => void;
   typingUsers?: TypingUser[];
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
@@ -18,6 +19,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isOffline = false,
   userName = 'You',
   onOpenSettings,
+  onOpenOnlineUsers,
   typingUsers = [],
   isDarkMode = false,
   onToggleDarkMode,
@@ -62,14 +64,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
       {/* Right Controls: Green Online Number, Theme Toggle, Expand-on-hover User Profile */}
       <div className="flex items-center gap-2 sm:gap-2.5">
-        {/* Online Count: Green Dot + Number Only */}
-        <div
-          className={`flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-full ${
+        {/* Online Count: Clickable Green Dot + Number Only */}
+        <button
+          type="button"
+          onClick={onOpenOnlineUsers}
+          className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full cursor-pointer transition-all hover:scale-105 active:scale-95 ${
             isOffline
-              ? 'bg-amber-500/10 text-amber-500'
-              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+              ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500/20'
+              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20'
           }`}
-          title={`${onlineCount} online`}
+          title={`${onlineCount} online. Click to see list of online users.`}
+          aria-label="View online users"
         >
           <span
             className={`w-2 h-2 rounded-full ${
@@ -77,7 +82,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             }`}
           />
           <span>{onlineCount}</span>
-        </div>
+        </button>
 
         {/* Theme Switcher Button */}
         {onToggleDarkMode && (

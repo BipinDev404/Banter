@@ -21,11 +21,19 @@ import { ChatHeader } from './components/ChatHeader';
 import { MessageList } from './components/MessageList';
 import { MessageInput } from './components/MessageInput';
 import { SettingsModal } from './components/SettingsModal';
+import { OnlineUsersModal } from './components/OnlineUsersModal';
+import { LightboxModal } from './components/LightboxModal';
+import { MessageActionsModal } from './components/MessageActionsModal';
+import { ChatMessage } from './types';
+import { playMessagePopSound } from './lib/sound';
 
 export default function App() {
   const [userName, setUserName] = useState<string>(() => getSavedUserName());
   const [isEntered, setIsEntered] = useState<boolean>(() => !!getSavedUserName());
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isOnlineUsersOpen, setIsOnlineUsersOpen] = useState<boolean>(false);
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
+  const [actionsMsg, setActionsMsg] = useState<ChatMessage | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
 
   // Active inline reply target
@@ -34,13 +42,19 @@ export default function App() {
   // Unique session ID for this browser tab
   const sessionId = useMemo(() => getSessionId(), []);
 
-  // Connection test on initial mount
+  // Connection test and global double-click prevention
   useEffect(() => {
     testConnection();
+
+    const handleDblClick = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener('dblclick', handleDblClick);
+    return () => window.removeEventListener('dblclick', handleDblClick);
   }, []);
 
   // Presence hook
-  const { onlineCount, notifications } = usePresence({
+  const { onlineCount, notifications, otherUsers, onlineUsers, markViewLoaded } = usePresence({
     sessionId,
     userName,
     enabled: isEntered,
@@ -50,6 +64,8 @@ export default function App() {
   const {
     messages,
     sendMessage,
+    editMessage,
+    deleteMessage,
     toggleReaction,
     loading,
     hasMore,
@@ -61,6 +77,8 @@ export default function App() {
     userId: sessionId,
     userName,
     enabled: isEntered,
+    otherUsers,
+    onViewLoaded: markViewLoaded,
   });
 
   // Real-time typing status hook
@@ -69,6 +87,30 @@ export default function App() {
     userName,
     enabled: isEntered,
   });
+
+  // Play subtle 'pop' sound when a new message from another user arrives
+  const lastMessageCountRef = React.useRef<number>(-1);
+  useEffect(() => {
+    if (!messages || messages.length === 0) return;
+
+    if (lastMessageCountRef.current === -1) {
+      // First snapshot on chat load: initialize count without playing sound
+      lastMessageCountRef.current = messages.length;
+      return;
+    }
+
+    if (messages.length > lastMessageCountRef.current) {
+      const newestMsg = messages[messages.length - 1];
+      // Play pop only if message came from another user and is not our own optimistic send
+      if (newestMsg && newestMsg.userId !== sessionId && !newestMsg.isOptimistic) {
+        playMessagePopSound();
+      }
+      lastMessageCountRef.current = messages.length;
+    } else if (messages.length < lastMessageCountRef.current) {
+      // Ephemeral cleanup happened
+      lastMessageCountRef.current = messages.length;
+    }
+  }, [messages, sessionId]);
 
   const handleEnterChat = (name: string, avatarId?: string) => {
     const cleanName = name.trim();
@@ -141,6 +183,7 @@ export default function App() {
         isOffline={isOffline}
         userName={userName}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenOnlineUsers={() => setIsOnlineUsersOpen(true)}
         typingUsers={typingUsers}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
@@ -156,6 +199,8 @@ export default function App() {
         onLoadMore={loadMoreMessages}
         onReact={toggleReaction}
         onReplyTo={handleReplyTo}
+        onOpenImage={(url, name) => setLightboxImage({ url, name })}
+        onOpenActionsModal={(msg) => setActionsMsg(msg)}
         typingUsers={typingUsers}
         isDarkMode={isDarkMode}
       />
@@ -180,6 +225,51 @@ export default function App() {
         currentName={userName}
         onSaveName={handleSaveNewName}
         onClearData={handleClearData}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Online Users List Modal */}
+      <OnlineUsersModal
+        isOpen={isOnlineUsersOpen}
+        onClose={() => setIsOnlineUsersOpen(false)}
+        users={onlineUsers}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Fullscreen Image Lightbox Modal */}
+      <LightboxModal
+        isOpen={!!lightboxImage}
+        onClose={() => setLightboxImage(null)}
+        imageUrl={lightboxImage?.url || ''}
+        imageName={lightboxImage?.name}
+      />
+
+      {/* Message Options Actions Modal */}
+      <MessageActionsModal
+        isOpen={!!actionsMsg}
+        onClose={() => setActionsMsg(null)}
+        message={actionsMsg}
+        isSelf={actionsMsg?.userId === sessionId}
+        onReply={() => {
+          if (actionsMsg) {
+            handleReplyTo(actionsMsg.userName, actionsMsg.message || '');
+          }
+        }}
+        onReact={(emoji) => {
+          if (actionsMsg?.id) {
+            toggleReaction(actionsMsg.id, emoji);
+          }
+        }}
+        onEdit={(newText) => {
+          if (actionsMsg?.id) {
+            editMessage(actionsMsg.id, newText);
+          }
+        }}
+        onDelete={() => {
+          if (actionsMsg?.id) {
+            deleteMessage(actionsMsg.id);
+          }
+        }}
         isDarkMode={isDarkMode}
       />
     </div>

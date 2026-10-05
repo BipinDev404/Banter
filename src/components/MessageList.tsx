@@ -14,6 +14,8 @@ interface MessageListProps {
   onLoadMore: () => void;
   onReact: (messageId: string, emoji: string) => void;
   onReplyTo: (userName: string, textSnippet: string) => void;
+  onOpenImage?: (url: string, name: string) => void;
+  onOpenActionsModal?: (message: ChatMessage) => void;
   typingUsers?: TypingUser[];
   isDarkMode?: boolean;
 }
@@ -67,6 +69,8 @@ export const MessageList: React.FC<MessageListProps> = ({
   onLoadMore,
   onReact,
   onReplyTo,
+  onOpenImage,
+  onOpenActionsModal,
   typingUsers = [],
   isDarkMode = false,
 }) => {
@@ -74,6 +78,18 @@ export const MessageList: React.FC<MessageListProps> = ({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const isFirstLoadRef = useRef(true);
+
+  // Single active reaction box across the entire chat
+  const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null);
+
+  // Close reaction box on click outside or scroll
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setActiveReactionMsgId(null);
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   // Queue to guarantee only ONE join/leave notification box displays at a time for exactly 2 seconds
   const [activeNotice, setActiveNotice] = useState<SystemNotification | null>(null);
@@ -273,10 +289,23 @@ export const MessageList: React.FC<MessageListProps> = ({
                 <MessageBubble
                   message={msg}
                   isSelf={msg.userId === currentUserId}
-                  onReact={onReact}
-                  onReplyTo={onReplyTo}
+                  onReact={(msgId, emoji) => {
+                    onReact(msgId, emoji);
+                    setActiveReactionMsgId(null);
+                  }}
+                  onReplyTo={(userName, textSnippet) => {
+                    onReplyTo(userName, textSnippet);
+                    setActiveReactionMsgId(null);
+                  }}
+                  onOpenImage={onOpenImage}
+                  onOpenActionsModal={onOpenActionsModal}
                   isDarkMode={isDarkMode}
                   allParticipantNames={participantNames}
+                  showTapbackPicker={activeReactionMsgId === msg.id}
+                  onToggleTapbackPicker={() => {
+                    setActiveReactionMsgId((prev) => (prev === msg.id ? null : msg.id));
+                  }}
+                  onCloseTapbackPicker={() => setActiveReactionMsgId(null)}
                 />
               </React.Fragment>
             );

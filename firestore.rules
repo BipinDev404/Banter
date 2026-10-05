@@ -23,21 +23,33 @@ service cloud.firestore {
     // Message validation helper
     function isValidMessage(data) {
       return data.keys().hasAll(['userId', 'userName', 'message', 'createdAt']) &&
-        data.keys().hasOnly(['userId', 'userName', 'message', 'createdAt']) &&
+        data.keys().hasOnly(['userId', 'userName', 'message', 'createdAt', 'attachment', 'reactions', 'replyTo']) &&
         data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
         data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 20 &&
-        data.message is string && data.message.size() >= 1 && data.message.size() <= 500 &&
-        data.createdAt == request.time;
+        data.message is string && data.message.size() <= 2000 &&
+        (!data.keys().hasAny(['attachment']) || (
+          data.attachment.keys().hasAll(['id', 'type', 'url', 'name']) &&
+          data.attachment.type is string &&
+          data.attachment.url is string && data.attachment.url.size() <= 900000 &&
+          data.attachment.name is string && data.attachment.name.size() <= 200
+        )) &&
+        (!data.keys().hasAny(['reactions']) || data.reactions is list) &&
+        (!data.keys().hasAny(['replyTo']) || (
+          data.replyTo.keys().hasAll(['userName', 'snippet']) &&
+          data.replyTo.userName is string &&
+          data.replyTo.snippet is string
+        ));
     }
 
     // Presence validation helper
     function isValidPresence(data) {
       return data.keys().hasAll(['sessionId', 'userName', 'connectedAt', 'lastSeen']) &&
-        data.keys().hasOnly(['sessionId', 'userName', 'connectedAt', 'lastSeen']) &&
+        data.keys().hasOnly(['sessionId', 'userName', 'connectedAt', 'lastSeen', 'lastReadAt']) &&
         data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 128 &&
         data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 20 &&
         data.connectedAt is timestamp &&
-        data.lastSeen == request.time;
+        data.lastSeen == request.time &&
+        (!data.keys().hasAny(['lastReadAt']) || data.lastReadAt is timestamp);
     }
 
     // Typing validation helper
@@ -55,7 +67,7 @@ service cloud.firestore {
       allow list: if true;
       allow get: if isValidId(messageId);
       allow create: if isValidId(messageId) && isValidMessage(incoming());
-      allow update: if false;
+      allow update: if isValidId(messageId) && isValidMessage(incoming());
       allow delete: if isValidId(messageId);
     }
 

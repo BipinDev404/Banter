@@ -11,18 +11,27 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { ChatMessage } from '../types';
+import { ChatMessage, ChatAttachment } from '../types';
+import { ActiveUserReader } from './usePresence';
 
 interface UseMessagesProps {
   userId: string;
   userName: string;
   enabled: boolean;
+  otherUsers?: ActiveUserReader[];
+  onViewLoaded?: () => void;
 }
 
 // 2 hours automatic message expiration cutoff
 export const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
-export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
+export function useMessages({
+  userId,
+  userName,
+  enabled,
+  otherUsers = [],
+  onViewLoaded,
+}: UseMessagesProps) {
   const [firestoreMessages, setFirestoreMessages] = useState<ChatMessage[]>([]);
   const [messageLimit, setMessageLimit] = useState<number>(50);
   const [hasMore, setHasMore] = useState<boolean>(false);
@@ -121,6 +130,9 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
             userName: data.userName || 'Anonymous',
             message: data.message || '',
             createdAt: timestamp,
+            attachment: data.attachment || undefined,
+            reactions: Array.isArray(data.reactions) ? data.reactions : [],
+            replyTo: data.replyTo || undefined,
           });
         });
 
@@ -130,6 +142,7 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
         setFirestoreMessages(loaded);
         setLoading(false);
         setErrorMessage(null);
+        onViewLoaded?.();
       },
       (error) => {
         setLoading(false);
@@ -142,25 +155,39 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
     return () => unsubscribe();
   }, [enabled, messageLimit]);
 
-  // Map user reactions to live messages
+  // Map user reactions and calculate read status based on other users having loaded the view
   const messages = useMemo(() => {
     const now = Date.now();
     const cutoff = now - TWO_HOURS_MS;
     return firestoreMessages
       .filter((msg) => msg.createdAt >= cutoff)
-      .map((msg) => ({
-        ...msg,
-        reactions: reactionsMap[msg.id] || msg.reactions || [],
-      }));
-  }, [firestoreMessages, reactionsMap]);
+      .map((msg) => {
+        // A message is seen/read when at least one other user has loaded the view at or after message creation
+        const readers = (otherUsers || []).filter((u) => {
+          const readTime = Math.max(u.lastReadAt || 0, u.lastSeen || 0);
+          return readTime >= (msg.createdAt - 3000);
+        });
+
+        const isRead = readers.length > 0;
+        const readBy = readers.map((r) => r.userName);
+
+        return {
+          ...msg,
+          isRead,
+          readBy,
+          reactions: reactionsMap[msg.id] || msg.reactions || [],
+        };
+      });
+  }, [firestoreMessages, reactionsMap, otherUsers]);
 
   // Toggle reaction (Tapback)
   const toggleReaction = useCallback((messageId: string, emoji: string) => {
     setReactionsMap((prev) => {
-      const current = prev[messageId] || [];
-      const updated = current.includes(emoji)
-        ? current.filter((e) => e !== emoji)
-        : [...current, emoji];
+      const msg = firestoreMessages.find((m) => m.id === messageId);
+      const existingReactions = prev[messageId] || msg?.reactions || [];
+      const updated = existingReactions.includes(emoji)
+        ? existingReactions.filter((e) => e !== emoji)
+        : [...existingReactions, emoji];
 
       const newMap = { ...prev, [messageId]: updated };
       try {
@@ -168,33 +195,45 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
       } catch (e) {
         console.error(e);
       }
+
+      // Sync to Firestore doc
+      try {
+        setDoc(doc(db, 'messages', messageId), { reactions: updated }, { merge: true }).catch(() => {});
+      } catch (e) {
+        console.error(e);
+      }
+
       return newMap;
     });
-  }, []);
+  }, [firestoreMessages]);
 
-  // Send message
+  // Send message with optional attachment and replyTo
   const sendMessage = useCallback(
-    async (text: string): Promise<boolean> => {
+    async (
+      text: string,
+      attachment?: ChatAttachment,
+      replyTo?: { userName: string; snippet: string }
+    ): Promise<boolean> => {
       const trimmed = text.trim();
-      if (!trimmed) {
+      if (!trimmed && !attachment) {
         return false;
       }
 
-      if (trimmed.length > 500) {
-        setErrorMessage('Message too long (max 500 characters).');
+      if (trimmed.length > 2000) {
+        setErrorMessage('Message too long (max 2000 characters).');
         return false;
       }
 
       // Rate limit protection
       const now = Date.now();
-      if (now - lastSentTimeRef.current < 400) {
+      if (now - lastSentTimeRef.current < 300) {
         setErrorMessage('Sending too fast! Please slow down.');
         return false;
       }
 
       const fiveSecsAgo = now - 5000;
       recentSendsRef.current = recentSendsRef.current.filter((t) => t > fiveSecsAgo);
-      if (recentSendsRef.current.length >= 6) {
+      if (recentSendsRef.current.length >= 8) {
         setErrorMessage('Slow down a bit! You are sending messages too quickly.');
         return false;
       }
@@ -212,6 +251,8 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
         userId,
         userName,
         message: trimmed,
+        attachment,
+        replyTo,
         createdAt: now,
         isOptimistic: true,
       };
@@ -220,12 +261,25 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
 
       try {
         const msgDocRef = doc(db, 'messages', cleanMessageId);
-        await setDoc(msgDocRef, {
+        const payload: Record<string, any> = {
           userId,
           userName: userName.slice(0, 20),
           message: trimmed,
           createdAt: serverTimestamp(),
-        });
+        };
+
+        if (attachment) {
+          payload.attachment = attachment;
+        }
+
+        if (replyTo) {
+          payload.replyTo = {
+            userName: replyTo.userName,
+            snippet: replyTo.snippet.slice(0, 200),
+          };
+        }
+
+        await setDoc(msgDocRef, payload);
         return true;
       } catch (err) {
         console.error('Error sending message:', err);
@@ -241,9 +295,46 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
     setMessageLimit((prev) => prev + 50);
   }, []);
 
+  // Edit an existing message
+  const editMessage = useCallback(async (messageId: string, newText: string): Promise<boolean> => {
+    const trimmed = newText.trim();
+    if (!trimmed) return false;
+
+    // Optimistic local update
+    setFirestoreMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, message: trimmed } : m))
+    );
+
+    try {
+      await setDoc(doc(db, 'messages', messageId), { message: trimmed }, { merge: true });
+      return true;
+    } catch (err) {
+      console.error('Error editing message:', err);
+      setErrorMessage("Couldn't update message.");
+      return false;
+    }
+  }, []);
+
+  // Delete an existing message
+  const deleteMessage = useCallback(async (messageId: string): Promise<boolean> => {
+    // Optimistic local update
+    setFirestoreMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+    try {
+      await deleteDoc(doc(db, 'messages', messageId));
+      return true;
+    } catch (err) {
+      console.error('Error deleting message:', err);
+      setErrorMessage("Couldn't delete message.");
+      return false;
+    }
+  }, []);
+
   return {
     messages,
     sendMessage,
+    editMessage,
+    deleteMessage,
     toggleReaction,
     loading,
     hasMore,
