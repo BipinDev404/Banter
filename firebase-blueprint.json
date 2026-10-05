@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "Message": {
+      "title": "Message",
+      "description": "A chat message in the global room",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique client session or user ID",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name of the sender",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "description": "Content of the chat message",
+          "maxLength": 500,
+          "minLength": 1
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        }
+      },
+      "required": ["userId", "userName", "message", "createdAt"]
+    },
+    "Presence": {
+      "title": "Presence",
+      "description": "Active session presence record for online counter",
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "type": "string",
+          "description": "Unique session ID of connected user",
+          "maxLength": 128,
+          "minLength": 1
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name of connected user",
+          "maxLength": 20,
+          "minLength": 1
+        },
+        "connectedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when session connected"
+        },
+        "lastSeen": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last heartbeat"
+        }
+      },
+      "required": ["sessionId", "userName", "connectedAt", "lastSeen"]
+    }
+  },
+  "firestore": {
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Global chat messages collection"
+    },
+    "/presence/{sessionId}": {
+      "schema": "Presence",
+      "description": "Active presence sessions for online count"
+    }
+  }
+}

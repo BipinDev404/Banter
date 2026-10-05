@@ -1,0 +1,112 @@
+import { initializeApp } from 'firebase/app';
+import {
+  getFirestore,
+  doc,
+  getDocFromServer,
+} from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
+
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: true,
+      tenantId: null,
+      providerInfo: [],
+    },
+    operationType,
+    path,
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
+
+// Test connection on boot as mandated by Firebase skill
+export async function testConnection(): Promise<boolean> {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+    return true;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('Firebase client is offline or reconnecting.');
+    }
+    return false;
+  }
+}
+
+// Unique session ID per browser tab (persisted in sessionStorage)
+export function getSessionId(): string {
+  const STORAGE_KEY = 'banter_tab_session_id';
+  try {
+    let id = sessionStorage.getItem(STORAGE_KEY);
+    if (!id) {
+      id = 'sess_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+      sessionStorage.setItem(STORAGE_KEY, id);
+    }
+    return id;
+  } catch {
+    return 'sess_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+  }
+}
+
+// Persistent user name across tabs (localStorage)
+export function getSavedUserName(): string {
+  try {
+    return (localStorage.getItem('banter_user_name') || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+export function saveUserName(name: string): void {
+  try {
+    localStorage.setItem('banter_user_name', name.trim());
+  } catch (e) {
+    console.error('Failed to save name to localStorage', e);
+  }
+}
+
+export function clearLocalData(): void {
+  try {
+    localStorage.removeItem('banter_user_name');
+    sessionStorage.removeItem('banter_tab_session_id');
+  } catch (e) {
+    console.error('Failed to clear local data', e);
+  }
+}
