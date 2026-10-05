@@ -16,6 +16,7 @@ import { doc, deleteDoc } from 'firebase/firestore';
 import { usePresence } from './hooks/usePresence';
 import { useMessages } from './hooks/useMessages';
 import { useTyping } from './hooks/useTyping';
+import { usePrivateChat } from './hooks/usePrivateChat';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ChatHeader } from './components/ChatHeader';
 import { MessageList } from './components/MessageList';
@@ -24,6 +25,8 @@ import { SettingsModal } from './components/SettingsModal';
 import { OnlineUsersModal } from './components/OnlineUsersModal';
 import { LightboxModal } from './components/LightboxModal';
 import { MessageActionsModal } from './components/MessageActionsModal';
+import { PrivateChatConfirmationModal } from './components/PrivateChatConfirmationModal';
+import { PrivateChatModal } from './components/PrivateChatModal';
 import { ChatMessage } from './types';
 import { playMessagePopSound } from './lib/sound';
 
@@ -83,6 +86,27 @@ export default function App() {
 
   // Real-time typing status hook
   const { typingUsers, notifyTyping, stopTyping } = useTyping({
+    sessionId,
+    userName,
+    enabled: isEntered,
+  });
+
+  // Real-time Private Chat hook
+  const {
+    incomingRequest,
+    sentRequestStatus,
+    activePrivateChat,
+    privateMessages,
+    loadingPrivate,
+    privateError,
+    requestPrivateChat,
+    acceptPrivateChat,
+    declinePrivateChat,
+    leavePrivateChat,
+    sendPrivateMessage,
+    togglePrivateReaction,
+    clearPrivateError,
+  } = usePrivateChat({
     sessionId,
     userName,
     enabled: isEntered,
@@ -233,6 +257,35 @@ export default function App() {
         isOpen={isOnlineUsersOpen}
         onClose={() => setIsOnlineUsersOpen(false)}
         users={onlineUsers}
+        onRequestPrivateChat={(targetId, targetName) => {
+          requestPrivateChat(targetId, targetName);
+        }}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Private Chat Confirmation Request Modal */}
+      <PrivateChatConfirmationModal
+        isOpen={!!incomingRequest}
+        request={incomingRequest}
+        onAccept={() => {
+          if (incomingRequest) acceptPrivateChat(incomingRequest);
+        }}
+        onDecline={() => {
+          if (incomingRequest) declinePrivateChat(incomingRequest);
+        }}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Active 1-on-1 Private Chat Modal */}
+      <PrivateChatModal
+        isOpen={!!activePrivateChat}
+        onClose={leavePrivateChat}
+        room={activePrivateChat}
+        messages={privateMessages}
+        onSendMessage={sendPrivateMessage}
+        onReact={togglePrivateReaction}
+        currentUserId={sessionId}
+        currentUserName={userName}
         isDarkMode={isDarkMode}
       />
 
@@ -252,7 +305,18 @@ export default function App() {
         isSelf={actionsMsg?.userId === sessionId}
         onReply={() => {
           if (actionsMsg) {
-            handleReplyTo(actionsMsg.userName, actionsMsg.message || '');
+            const textPart = actionsMsg.message?.trim() || '';
+            const attachLabel = actionsMsg.attachment
+              ? actionsMsg.attachment.type === 'image'
+                ? '📷 Photo'
+                : `📄 ${actionsMsg.attachment.name}`
+              : '';
+            const snippet = textPart
+              ? attachLabel
+                ? `${textPart} (${attachLabel})`
+                : textPart
+              : attachLabel;
+            handleReplyTo(actionsMsg.userName, snippet);
           }
         }}
         onReact={(emoji) => {

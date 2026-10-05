@@ -111,7 +111,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const formattedTime = formatMessageTime(message.createdAt);
   const attachment = message.attachment;
 
-  // Long press handler: Holding for 350ms opens Message Options Modal (including on images & files)
+  // Helper to construct a clear snippet describing message text or file attachment
+  const getMessageSnippet = (msg: ChatMessage) => {
+    const textPart = msg.message?.trim() || '';
+    if (msg.attachment) {
+      const attachLabel = msg.attachment.type === 'image' ? '📷 Photo' : `📄 ${msg.attachment.name}`;
+      return textPart ? `${textPart} (${attachLabel})` : attachLabel;
+    }
+    return textPart;
+  };
+
+  // Long press handler: Holding for 350ms opens ONLY Reaction Box (on phone & desktop)
   const startLongPress = (clientX: number, clientY: number) => {
     triggeredReplyRef.current = false;
     touchStartRef.current = { x: clientX, y: clientY };
@@ -123,7 +133,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           navigator.vibrate(25);
         } catch {}
       }
-      onOpenActionsModal?.(message);
+      togglePicker();
       touchStartRef.current = null;
     }, 350);
   };
@@ -171,7 +181,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const handleTouchEnd = () => {
     cancelLongPress();
     if (triggeredReplyRef.current || Math.abs(dragX) > 50) {
-      onReplyTo(safeUserName, message.message || '');
+      onReplyTo(safeUserName, getMessageSnippet(message));
     }
     setIsDragging(false);
     setDragX(0);
@@ -212,7 +222,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const handleMouseUp = () => {
     cancelLongPress();
     if (triggeredReplyRef.current || Math.abs(dragX) > 50) {
-      onReplyTo(safeUserName, message.message || '');
+      onReplyTo(safeUserName, getMessageSnippet(message));
     }
     setIsDragging(false);
     setDragX(0);
@@ -309,7 +319,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <div className="w-px h-5 bg-neutral-300 dark:bg-neutral-700 mx-0.5" />
             <button
               onClick={() => {
-                onReplyTo(safeUserName, message.message || '');
+                onReplyTo(safeUserName, getMessageSnippet(message));
                 closePicker();
               }}
               className="px-2 py-1 rounded-full text-xs font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-1 cursor-pointer transition-colors"

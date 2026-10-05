@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Users, Sparkles } from 'lucide-react';
+import { X, Users, Sparkles, Lock } from 'lucide-react';
 import { AvatarProfile } from '../lib/avatars';
 
 export interface OnlineUserItem {
@@ -13,6 +13,7 @@ interface OnlineUsersModalProps {
   isOpen: boolean;
   onClose: () => void;
   users: OnlineUserItem[];
+  onRequestPrivateChat?: (targetSessionId: string, targetUserName: string) => void;
   isDarkMode?: boolean;
 }
 
@@ -20,6 +21,7 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
   isOpen,
   onClose,
   users = [],
+  onRequestPrivateChat,
   isDarkMode = false,
 }) => {
   // Close on Escape key press
@@ -120,9 +122,22 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
                   </div>
                 </div>
 
-                {/* Right: Badge */}
-                {user.isSelf && (
+                {/* Right: Badge or Private Chat Button */}
+                {user.isSelf ? (
                   <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0 mr-1" />
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRequestPrivateChat?.(user.sessionId, user.userName);
+                      onClose();
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 ml-2"
+                    title={`Send private chat request to ${user.userName}`}
+                  >
+                    <Lock className="w-3.5 h-3.5 stroke-[2.2]" />
+                    <span>Private</span>
+                  </button>
                 )}
               </div>
             ))

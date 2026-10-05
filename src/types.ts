@@ -42,6 +42,23 @@ export interface UserPresence {
   avatarId?: string;
 }
 
+export interface PrivateChatRequest {
+  id: string;
+  fromSessionId: string;
+  fromUserName: string;
+  toSessionId: string;
+  toUserName: string;
+  status: 'pending' | 'accepted' | 'declined';
+  roomId: string;
+  createdAt: number;
+}
+
+export interface PrivateChatRoom {
+  roomId: string;
+  partnerSessionId: string;
+  partnerName: string;
+}
+
 export interface TypingUser {
   sessionId: string;
   userName: string;

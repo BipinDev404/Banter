@@ -1,7 +1,7 @@
 import React from 'react';
-import { Sun, Moon, User } from 'lucide-react';
+import { Sun, Moon, User, Lock, ArrowLeft } from 'lucide-react';
 import { BanterLogo } from './BanterLogo';
-import { TypingUser } from '../types';
+import { TypingUser, PrivateChatRoom } from '../types';
 
 interface ChatHeaderProps {
   onlineCount: number;
@@ -12,6 +12,8 @@ interface ChatHeaderProps {
   typingUsers?: TypingUser[];
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
+  activePrivateChat?: PrivateChatRoom | null;
+  onLeavePrivateChat?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -23,6 +25,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   typingUsers = [],
   isDarkMode = false,
   onToggleDarkMode,
+  activePrivateChat,
+  onLeavePrivateChat,
 }) => {
   const validTypingUsers = (typingUsers || []).filter(
     (u) => u && typeof u.userName === 'string' && u.userName.trim().length > 0
@@ -42,14 +46,22 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           : 'bg-white/90 border-neutral-200/80 text-neutral-900'
       } backdrop-blur-xl`}
     >
-      {/* Left: Brand Identity with Only Banter */}
+      {/* Left: Brand Identity / Private Chat Title */}
       <div className="flex items-center gap-2.5">
         <BanterLogo className="w-8 h-8 shrink-0 drop-shadow-xs" />
         <div className="flex flex-col justify-center">
-          <span className="font-extrabold text-xl tracking-tight leading-none">
-            Banter
-          </span>
-          {hasTypers && (
+          <div className="flex items-center gap-2">
+            <span className="font-extrabold text-xl tracking-tight leading-none">
+              Banter
+            </span>
+            {activePrivateChat && (
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-500 flex items-center gap-1.5 animate-in fade-in">
+                <Lock className="w-3 h-3 stroke-[2.5]" />
+                <span>Private with {activePrivateChat.partnerName}</span>
+              </span>
+            )}
+          </div>
+          {hasTypers && !activePrivateChat && (
             <span className="text-[11px] text-blue-500 font-semibold tracking-tight mt-0.5 flex items-center gap-1.5 animate-in fade-in">
               <span>{typerLabel}</span>
               <span className="inline-flex gap-0.5 items-center">
@@ -62,8 +74,20 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </div>
       </div>
 
-      {/* Right Controls: Green Online Number, Theme Toggle, Expand-on-hover User Profile */}
+      {/* Right Controls: Exit Private, Green Online Number, Theme Toggle, Expand-on-hover User Profile */}
       <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* Leave Private Chat Button */}
+        {activePrivateChat && onLeavePrivateChat && (
+          <button
+            type="button"
+            onClick={onLeavePrivateChat}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 cursor-pointer transition-all active:scale-95 shadow-2xs"
+            title="Leave private chat and return to Global Chat"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span className="hidden sm:inline">Exit Private</span>
+          </button>
+        )}
         {/* Online Count: Clickable Green Dot + Number Only */}
         <button
           type="button"

@@ -90,5 +90,21 @@ service cloud.firestore {
                             incoming().sessionId == sessionId;
       allow delete: if isValidId(sessionId);
     }
+
+    // Collection: private_requests
+    match /private_requests/{requestId} {
+      allow list: if true;
+      allow get: if isValidId(requestId);
+      allow create, update: if isValidId(requestId);
+      allow delete: if isValidId(requestId);
+    }
+
+    // Collection: private_messages
+    match /private_messages/{messageId} {
+      allow list: if true;
+      allow get: if isValidId(messageId);
+      allow create, update: if isValidId(messageId);
+      allow delete: if isValidId(messageId);
+    }
   }
 }
