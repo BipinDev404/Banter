@@ -15,6 +15,8 @@ export interface ChatMessage {
 
 export interface SystemNotification {
   id: string;
+  type?: 'join' | 'leave';
+  userName?: string;
   text: string;
   timestamp: number;
 }

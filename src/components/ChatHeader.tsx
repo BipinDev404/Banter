@@ -1,5 +1,6 @@
 import React from 'react';
-import { Sun, Moon, Settings, User, MessageSquare } from 'lucide-react';
+import { Sun, Moon, User } from 'lucide-react';
+import { BanterLogo } from './BanterLogo';
 import { TypingUser } from '../types';
 
 interface ChatHeaderProps {
@@ -39,16 +40,14 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           : 'bg-white/90 border-neutral-200/80 text-neutral-900'
       } backdrop-blur-xl`}
     >
-      {/* Left: Brand Identity with Simple Message Icon & Dynamic Typing Status */}
+      {/* Left: Brand Identity with Only Banter */}
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-xl bg-[#007AFF] text-white flex items-center justify-center shadow-xs shrink-0">
-          <MessageSquare className="w-4.5 h-4.5 stroke-[2.2]" />
-        </div>
-        <div className="flex flex-col">
-          <span className="font-extrabold text-lg tracking-tight leading-none">
+        <BanterLogo className="w-8 h-8 shrink-0 drop-shadow-xs" />
+        <div className="flex flex-col justify-center">
+          <span className="font-extrabold text-xl tracking-tight leading-none">
             Banter
           </span>
-          {hasTypers ? (
+          {hasTypers && (
             <span className="text-[11px] text-blue-500 font-semibold tracking-tight mt-0.5 flex items-center gap-1.5 animate-in fade-in">
               <span>{typerLabel}</span>
               <span className="inline-flex gap-0.5 items-center">
@@ -57,34 +56,30 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 <span className="w-1 h-1 rounded-full bg-blue-500 animate-bounce [animation-delay:0s]" />
               </span>
             </span>
-          ) : (
-            <span className="text-[11px] text-neutral-400 font-medium tracking-tight mt-0.5">
-              Global Chat
-            </span>
           )}
         </div>
       </div>
 
-      {/* Right Controls: Online Status, Theme Toggle, User Profile */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Live Online Badge */}
+      {/* Right Controls: Green Online Number, Theme Toggle, Expand-on-hover User Profile */}
+      <div className="flex items-center gap-2 sm:gap-2.5">
+        {/* Online Count: Green Dot + Number Only */}
         <div
-          className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full ${
+          className={`flex items-center gap-1.5 text-xs font-bold px-2 py-1 rounded-full ${
             isOffline
               ? 'bg-amber-500/10 text-amber-500'
               : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
           }`}
-          title={`${onlineCount} users online`}
+          title={`${onlineCount} online`}
         >
           <span
             className={`w-2 h-2 rounded-full ${
               isOffline ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'
             }`}
           />
-          <span>{onlineCount} online</span>
+          <span>{onlineCount}</span>
         </div>
 
-        {/* Theme Switcher */}
+        {/* Theme Switcher Button */}
         {onToggleDarkMode && (
           <button
             onClick={onToggleDarkMode}
@@ -100,19 +95,21 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </button>
         )}
 
-        {/* User Profile & Settings */}
+        {/* User Profile Button: Compact like theme button, expands full on hover */}
         <button
           onClick={onOpenSettings}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+          className={`group p-2 hover:px-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 cursor-pointer overflow-hidden ${
             isDarkMode
-              ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200'
-              : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700'
+              ? 'text-neutral-300 hover:text-white hover:bg-neutral-800'
+              : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
           }`}
           title={`Signed in as ${userName || 'You'}. Click to change settings.`}
           aria-label="User settings"
         >
-          <User className="w-3.5 h-3.5" />
-          <span className="max-w-[100px] truncate">{userName || 'You'}</span>
+          <User className="w-4 h-4 shrink-0" />
+          <span className="max-w-0 group-hover:max-w-[130px] transition-all duration-300 overflow-hidden whitespace-nowrap opacity-0 group-hover:opacity-100 font-medium">
+            {userName || 'You'}
+          </span>
         </button>
       </div>
     </header>

@@ -7,6 +7,7 @@ import {
   onSnapshot,
   doc,
   setDoc,
+  deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
@@ -17,6 +18,9 @@ interface UseMessagesProps {
   userName: string;
   enabled: boolean;
 }
+
+// 2 hours automatic message expiration cutoff
+export const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
   const [firestoreMessages, setFirestoreMessages] = useState<ChatMessage[]>([]);
@@ -61,7 +65,30 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
     };
   }, []);
 
-  // Listen to live messages from Firestore
+  // 1. Periodic cleanup timer: auto-erase messages older than 2 hours in real time
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      const cutoff = now - TWO_HOURS_MS;
+
+      setFirestoreMessages((prev) => {
+        const expired = prev.filter((m) => m.createdAt < cutoff);
+        // Clean up expired docs in Firestore
+        expired.forEach((m) => {
+          if (!m.isOptimistic) {
+            deleteDoc(doc(db, 'messages', m.id)).catch(() => {});
+          }
+        });
+
+        const active = prev.filter((m) => m.createdAt >= cutoff);
+        return active.length === prev.length ? prev : active;
+      });
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(cleanupInterval);
+  }, []);
+
+  // 2. Listen to live messages from Firestore with 2-hour filter and cleanup
   useEffect(() => {
     if (!enabled) return;
 
@@ -72,12 +99,21 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        const now = Date.now();
+        const cutoff = now - TWO_HOURS_MS;
         const loaded: ChatMessage[] = [];
+
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const timestamp = data.createdAt?.toMillis
             ? data.createdAt.toMillis()
-            : Date.now();
+            : now;
+
+          // Auto-erase check: If message is older than 2 hours, delete from Firestore
+          if (timestamp < cutoff) {
+            deleteDoc(docSnap.ref).catch(() => {});
+            return;
+          }
 
           loaded.push({
             id: docSnap.id,
@@ -108,10 +144,14 @@ export function useMessages({ userId, userName, enabled }: UseMessagesProps) {
 
   // Map user reactions to live messages
   const messages = useMemo(() => {
-    return firestoreMessages.map((msg) => ({
-      ...msg,
-      reactions: reactionsMap[msg.id] || msg.reactions || [],
-    }));
+    const now = Date.now();
+    const cutoff = now - TWO_HOURS_MS;
+    return firestoreMessages
+      .filter((msg) => msg.createdAt >= cutoff)
+      .map((msg) => ({
+        ...msg,
+        reactions: reactionsMap[msg.id] || msg.reactions || [],
+      }));
   }, [firestoreMessages, reactionsMap]);
 
   // Toggle reaction (Tapback)

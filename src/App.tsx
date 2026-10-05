@@ -10,7 +10,9 @@ import {
   saveUserName,
   clearLocalData,
   testConnection,
+  db,
 } from './lib/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
 import { usePresence } from './hooks/usePresence';
 import { useMessages } from './hooks/useMessages';
 import { useTyping } from './hooks/useTyping';
@@ -89,6 +91,11 @@ export default function App() {
   };
 
   const handleClearData = () => {
+    try {
+      deleteDoc(doc(db, 'presence', sessionId)).catch(() => {});
+    } catch (e) {
+      console.error(e);
+    }
     clearLocalData();
     try {
       localStorage.removeItem('banter_user_avatar');

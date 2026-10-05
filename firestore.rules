@@ -50,12 +50,13 @@ service cloud.firestore {
         data.lastTyped == request.time;
     }
 
-    // Collection: messages
+    // Collection: messages (with ephemeral auto-cleanup deletion allowed)
     match /messages/{messageId} {
       allow list: if true;
       allow get: if isValidId(messageId);
       allow create: if isValidId(messageId) && isValidMessage(incoming());
-      allow update, delete: if false;
+      allow update: if false;
+      allow delete: if isValidId(messageId);
     }
 
     // Collection: presence

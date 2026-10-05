@@ -12,6 +12,19 @@ interface MessageBubbleProps {
   allParticipantNames?: string[];
 }
 
+function formatMessageTime(timestamp?: number): string {
+  if (!timestamp) return '';
+  try {
+    const d = new Date(timestamp);
+    return d.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return '';
+  }
+}
+
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isSelf,
@@ -26,6 +39,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const safeUserName = message.userName || 'Anonymous';
   const avatar = getAvatarForUser(safeUserName, message.avatarId);
+  const formattedTime = formatMessageTime(message.createdAt);
 
   // Helper to highlight participant names in bold, matching the iMessage reference
   const renderMessageContent = (text: string) => {
@@ -71,7 +85,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const hasReactions = Array.isArray(message.reactions) && message.reactions.length > 0;
 
   return (
-    <div className={`flex flex-col relative group my-1.5 select-text ${isSelf ? 'items-end' : 'items-start'}`}>
+    <div className={`flex flex-col relative group my-2.5 sm:my-3.5 select-text ${isSelf ? 'items-end' : 'items-start'}`}>
       {/* Floating Apple Tapback Picker Bar */}
       {showTapbackPicker && (
         <div
@@ -110,7 +124,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
       {/* Outgoing Message (Current User) */}
       {isSelf ? (
-        <div className="flex flex-col items-end max-w-[82%] sm:max-w-[75%] relative">
+        <div className="flex flex-col items-end max-w-[85%] sm:max-w-[78%] relative">
           {/* Reaction badges positioned on top of the bubble */}
           {hasReactions && (
             <div className="relative -mb-3 z-10 mr-3 flex items-center gap-0.5">
@@ -147,18 +161,24 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </p>
           </div>
 
-          {/* "Read" Receipt underneath sent message */}
-          <div className="flex items-center justify-end gap-1 mt-1 mr-1 select-none">
+          {/* Timestamp and "Read" Receipt underneath sent message */}
+          <div className="flex items-center justify-end gap-1.5 mt-1 mr-1 select-none">
+            {formattedTime && (
+              <span className="text-[10px] sm:text-[10.5px] text-neutral-400 dark:text-neutral-500 font-normal">
+                {formattedTime}
+              </span>
+            )}
+            <span className="text-[10px] text-neutral-300 dark:text-neutral-700">•</span>
             {message.isOptimistic ? (
               <span className="text-[10px] text-neutral-400 font-medium">Sending...</span>
             ) : (
-              <span className="text-[11px] text-neutral-400 font-normal">Read</span>
+              <span className="text-[10.5px] text-neutral-400 font-normal">Read</span>
             )}
           </div>
         </div>
       ) : (
         /* Incoming Message (Other Users) */
-        <div className="flex items-end gap-2 max-w-[85%] sm:max-w-[78%] relative">
+        <div className="flex items-end gap-2 max-w-[88%] sm:max-w-[82%] relative">
           {/* Memoji Avatar Circle on bottom-left */}
           <div
             className={`w-8 h-8 rounded-full ${avatar.bgColor} border border-black/5 dark:border-white/10 flex items-center justify-center text-lg shrink-0 shadow-xs select-none`}
@@ -212,6 +232,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {renderMessageContent(message.message || '')}
               </p>
             </div>
+
+            {/* Timestamp underneath received message */}
+            {formattedTime && (
+              <div className="flex items-center mt-1 ml-1 select-none">
+                <span className="text-[10px] sm:text-[10.5px] text-neutral-400 dark:text-neutral-500 font-normal">
+                  {formattedTime}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

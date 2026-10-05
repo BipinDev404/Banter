@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ChatMessage, SystemNotification, TypingUser } from '../types';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
-import { ArrowDown, Loader2, MessageCircle } from 'lucide-react';
+import { ArrowDown, Loader2, UserPlus, UserMinus } from 'lucide-react';
+import { BanterLogo } from './BanterLogo';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -74,6 +75,60 @@ export const MessageList: React.FC<MessageListProps> = ({
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const isFirstLoadRef = useRef(true);
 
+  // Queue to guarantee only ONE join/leave notification box displays at a time for exactly 2 seconds
+  const [activeNotice, setActiveNotice] = useState<SystemNotification | null>(null);
+  const queueRef = useRef<SystemNotification[]>([]);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const isDisplayingRef = useRef(false);
+
+  const displayNext = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (queueRef.current.length === 0) {
+      setActiveNotice(null);
+      isDisplayingRef.current = false;
+      return;
+    }
+
+    isDisplayingRef.current = true;
+    const next = queueRef.current.shift()!;
+    setActiveNotice(next);
+
+    // Box disappears after exactly 2 seconds, then immediately shows the next one in queue
+    timerRef.current = setTimeout(() => {
+      displayNext();
+    }, 2000);
+  }, []);
+
+  // Ingest incoming system notifications into sequential queue
+  useEffect(() => {
+    let hasNew = false;
+    (systemNotifications || []).forEach((n) => {
+      if (n && n.id && !seenIdsRef.current.has(n.id)) {
+        seenIdsRef.current.add(n.id);
+        queueRef.current.push(n);
+        hasNew = true;
+      }
+    });
+
+    if (hasNew && !isDisplayingRef.current) {
+      displayNext();
+    }
+  }, [systemNotifications, displayNext]);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     bottomRef.current?.scrollIntoView({ behavior });
   };
@@ -135,11 +190,38 @@ export const MessageList: React.FC<MessageListProps> = ({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className={`flex-1 overflow-y-auto px-4 sm:px-8 py-5 relative ${
+      className={`flex-1 overflow-y-auto px-4 sm:px-8 py-4 relative ${
         isDarkMode ? 'bg-[#121316] text-white' : 'bg-white text-neutral-900'
       }`}
     >
       <div className="max-w-3xl mx-auto w-full flex flex-col space-y-1 min-h-full">
+        {/* Top Activity Banner: Exactly ONE join/leave notification box that disappears in 2 sec */}
+        {activeNotice && (
+          <div className="sticky top-1 z-20 flex justify-center pb-2 pointer-events-none select-none">
+            <div
+              key={activeNotice.id}
+              className={`pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-xs border transition-all backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 ${
+                isDarkMode
+                  ? 'bg-neutral-900/90 border-neutral-700/70 text-neutral-200'
+                  : 'bg-white/95 border-neutral-200/90 text-neutral-700'
+              }`}
+            >
+              {activeNotice.type === 'join' || activeNotice.text.toLowerCase().includes('joined') ? (
+                <span className="flex items-center gap-1 text-emerald-500">
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-neutral-400">
+                  <UserMinus className="w-3.5 h-3.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+                </span>
+              )}
+              <span>{activeNotice.text}</span>
+            </div>
+          </div>
+        )}
+
         {/* Load older messages button if available */}
         {hasMore && (
           <div className="flex justify-center pb-2">
@@ -159,9 +241,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         {/* Empty State when no messages exist */}
         {safeMessages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center my-auto py-16 text-center select-none">
-            <div className="w-16 h-16 rounded-full bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-blue-500 mb-3 shadow-2xs">
-              <MessageCircle className="w-8 h-8" />
-            </div>
+            <BanterLogo className="w-16 h-16 mb-3 drop-shadow-sm" />
             <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
               No messages yet
             </h3>
@@ -203,20 +283,7 @@ export const MessageList: React.FC<MessageListProps> = ({
           })
         )}
 
-        {/* System notifications */}
-        {(systemNotifications || []).map((n) => {
-          if (!n) return null;
-          return (
-            <div
-              key={n.id}
-              className="flex justify-center my-2 text-[11px] font-medium text-neutral-400 dark:text-neutral-500 select-none"
-            >
-              <span>{n.text}</span>
-            </div>
-          );
-        })}
-
-        {/* Real-time Typing Indicator */}
+        {/* Real-time Typing Indicator (at bottom right before bottomRef) */}
         <TypingIndicator typingUsers={typingUsers} isDarkMode={isDarkMode} />
 
         <div ref={bottomRef} className="h-3" />

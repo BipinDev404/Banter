@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowRight, MessageSquare } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { BanterLogo } from './BanterLogo';
 import { PRESET_AVATARS } from '../lib/avatars';
 
 interface WelcomeScreenProps {
@@ -37,11 +38,9 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
     <div className="min-h-screen min-h-[100dvh] w-full flex items-center justify-center p-4 bg-gradient-to-b from-neutral-100 to-neutral-200 dark:from-neutral-900 dark:to-black relative select-none">
       {/* Modal Card */}
       <div className="w-full max-w-sm rounded-[36px] bg-white/95 dark:bg-neutral-900/95 border border-neutral-200 dark:border-neutral-800 p-7 sm:p-8 shadow-2xl relative z-10 backdrop-blur-xl">
-        {/* Simple Message Icon */}
+        {/* Brand Logo Icon */}
         <div className="text-center mb-6 flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-[#007AFF] text-white flex items-center justify-center shadow-lg shadow-blue-500/25 mb-4">
-            <MessageSquare className="w-8 h-8 stroke-[2.2]" />
-          </div>
+          <BanterLogo className="w-16 h-16 mb-3 drop-shadow-md" />
           <h1 className="text-3xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
             Banter
           </h1>
