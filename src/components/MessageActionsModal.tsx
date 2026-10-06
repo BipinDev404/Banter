@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChatMessage } from '../types';
-import { X, Reply, Copy, Edit2, Trash2, Check, Plus } from 'lucide-react';
+import { X, Reply, Copy, Edit2, Trash2, Check, Plus, UserPlus, UserCheck } from 'lucide-react';
 import { TAPBACK_EMOJIS } from '../lib/avatars';
 
 interface MessageActionsModalProps {
@@ -12,6 +12,8 @@ interface MessageActionsModalProps {
   onReact: (emoji: string) => void;
   onEdit: (newText: string) => void;
   onDelete: () => void;
+  isFriend?: boolean;
+  onAddFriend?: () => void;
   isDarkMode?: boolean;
 }
 
@@ -24,6 +26,8 @@ export const MessageActionsModal: React.FC<MessageActionsModalProps> = ({
   onReact,
   onEdit,
   onDelete,
+  isFriend = false,
+  onAddFriend,
   isDarkMode = false,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -237,6 +241,24 @@ export const MessageActionsModal: React.FC<MessageActionsModalProps> = ({
                   <Copy className="w-4 h-4 text-neutral-400" />
                 )}
                 <span>{copied ? 'Copied to Clipboard!' : 'Copy Text'}</span>
+              </button>
+            )}
+
+            {/* Add Friend Action (if another user) */}
+            {!isSelf && onAddFriend && !isFriend && (
+              <button
+                onClick={() => {
+                  onAddFriend();
+                  onClose();
+                }}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-sm font-medium transition-colors cursor-pointer ${
+                  isDarkMode
+                    ? 'hover:bg-neutral-800 text-neutral-200'
+                    : 'hover:bg-neutral-100 text-neutral-700'
+                }`}
+              >
+                <UserPlus className="w-4 h-4 text-emerald-500" />
+                <span>Add {message.userName} as Friend</span>
               </button>
             )}
 

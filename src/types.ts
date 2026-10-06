@@ -65,3 +65,31 @@ export interface TypingUser {
   lastTyped: number;
 }
 
+export interface FriendRequest {
+  id: string;
+  fromSessionId: string;
+  fromUserName: string;
+  fromAvatarId?: string;
+  toSessionId: string;
+  toUserName: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: number;
+}
+
+export interface FriendItem {
+  friendSessionId: string;
+  friendName: string;
+  avatarId?: string;
+  statusText?: string;
+  addedAt: number;
+}
+
+export interface BookmarkedMessage {
+  id: string;
+  messageId: string;
+  text: string;
+  userName: string;
+  timestamp: number;
+  attachment?: ChatAttachment;
+}
+

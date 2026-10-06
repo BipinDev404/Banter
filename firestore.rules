@@ -106,5 +106,29 @@ service cloud.firestore {
       allow create, update: if isValidId(messageId);
       allow delete: if isValidId(messageId);
     }
+
+    // Collection: friend_requests
+    match /friend_requests/{requestId} {
+      allow list: if true;
+      allow get: if isValidId(requestId);
+      allow create, update: if isValidId(requestId);
+      allow delete: if isValidId(requestId);
+    }
+
+    // Collection: friendships
+    match /friendships/{friendshipId} {
+      allow list: if true;
+      allow get: if isValidId(friendshipId);
+      allow create, update: if isValidId(friendshipId);
+      allow delete: if isValidId(friendshipId);
+    }
+
+    // Collection: user_status
+    match /user_status/{sessionId} {
+      allow list: if true;
+      allow get: if isValidId(sessionId);
+      allow create, update: if isValidId(sessionId);
+      allow delete: if isValidId(sessionId);
+    }
   }
 }

@@ -4,6 +4,7 @@ import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
 import { ArrowDown, Loader2, UserPlus, UserMinus } from 'lucide-react';
 import { BanterLogo } from './BanterLogo';
+import { AppSettings, ChatBgPattern } from '../lib/settings';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -18,6 +19,35 @@ interface MessageListProps {
   onOpenActionsModal?: (message: ChatMessage) => void;
   typingUsers?: TypingUser[];
   isDarkMode?: boolean;
+  settings?: AppSettings;
+}
+
+function getPatternClass(pattern?: ChatBgPattern, isDark?: boolean): string {
+  switch (pattern) {
+    case 'doodle':
+      return isDark
+        ? 'bg-[#121316] text-white bg-[radial-gradient(#ffffff18_1px,transparent_1px)] [background-size:16px_16px]'
+        : 'bg-[#F9FAFB] text-neutral-900 bg-[radial-gradient(#00000010_1px,transparent_1px)] [background-size:16px_16px]';
+    case 'grid':
+      return isDark
+        ? 'bg-[#121316] text-white bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] [background-size:24px_24px]'
+        : 'bg-[#F9FAFB] text-neutral-900 bg-[linear-gradient(to_right,#0000000a_1px,transparent_1px),linear-gradient(to_bottom,#0000000a_1px,transparent_1px)] [background-size:24px_24px]';
+    case 'dots':
+      return isDark
+        ? 'bg-[#121316] text-white bg-[radial-gradient(#3b82f630_1.5px,transparent_1.5px)] [background-size:20px_20px]'
+        : 'bg-[#F9FAFB] text-neutral-900 bg-[radial-gradient(#007aff20_1.5px,transparent_1.5px)] [background-size:20px_20px]';
+    case 'dark-oled':
+      return 'bg-black text-white';
+    case 'warm-paper':
+      return isDark ? 'bg-[#1C1917] text-[#F5F5F4]' : 'bg-[#FAF7F2] text-[#292524]';
+    case 'gradient':
+      return isDark
+        ? 'bg-gradient-to-b from-[#1E1B4B]/30 via-[#121316] to-[#121316] text-white'
+        : 'bg-gradient-to-b from-blue-50/80 via-white to-white text-neutral-900';
+    case 'clean':
+    default:
+      return isDark ? 'bg-[#121316] text-white' : 'bg-white text-neutral-900';
+  }
 }
 
 // Format timestamps into Apple-style "Yesterday 11:35 AM", "Today 8:04 AM", or "Oct 4, 11:35 AM"
@@ -73,6 +103,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onOpenActionsModal,
   typingUsers = [],
   isDarkMode = false,
+  settings,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -206,9 +237,10 @@ export const MessageList: React.FC<MessageListProps> = ({
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className={`flex-1 overflow-y-auto px-4 sm:px-8 py-4 relative ${
-        isDarkMode ? 'bg-[#121316] text-white' : 'bg-white text-neutral-900'
-      }`}
+      className={`flex-1 overflow-y-auto px-4 sm:px-8 py-4 relative transition-colors ${getPatternClass(
+        settings?.chatBgPattern,
+        isDarkMode
+      )}`}
     >
       <div className="max-w-3xl mx-auto w-full flex flex-col space-y-1 min-h-full">
         {/* Top Activity Banner: Exactly ONE join/leave notification box that disappears in 2 sec */}
@@ -289,6 +321,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                 <MessageBubble
                   message={msg}
                   isSelf={msg.userId === currentUserId}
+                  themeAccent={settings?.themeAccent}
                   onReact={(msgId, emoji) => {
                     onReact(msgId, emoji);
                     setActiveReactionMsgId(null);

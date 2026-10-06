@@ -89,6 +89,29 @@
         }
       },
       "required": ["sessionId", "userName", "isTyping", "lastTyped"]
+    },
+    "FriendRequest": {
+      "title": "FriendRequest",
+      "description": "Friend request sent from one user to another",
+      "type": "object",
+      "properties": {
+        "fromSessionId": { "type": "string", "maxLength": 128 },
+        "fromUserName": { "type": "string", "maxLength": 20 },
+        "toSessionId": { "type": "string", "maxLength": 128 },
+        "toUserName": { "type": "string", "maxLength": 20 },
+        "status": { "type": "string", "enum": ["pending", "accepted", "declined"] }
+      },
+      "required": ["fromSessionId", "fromUserName", "toSessionId", "toUserName", "status"]
+    },
+    "Friendship": {
+      "title": "Friendship",
+      "description": "Confirmed friendship between two users",
+      "type": "object",
+      "properties": {
+        "friendshipId": { "type": "string", "maxLength": 128 },
+        "participants": { "type": "array" }
+      },
+      "required": ["friendshipId", "participants"]
     }
   },
   "firestore": {
@@ -103,6 +126,14 @@
     "/typing/{sessionId}": {
       "schema": "TypingStatus",
       "description": "Active typing indicators for real-time chat"
+    },
+    "/friend_requests/{requestId}": {
+      "schema": "FriendRequest",
+      "description": "Pending and processed friend requests"
+    },
+    "/friendships/{friendshipId}": {
+      "schema": "Friendship",
+      "description": "Confirmed mutual friendships"
     }
   }
 }

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ArrowUp, X, Plus, FileText, Loader2, Reply } from 'lucide-react';
 import { ChatAttachment } from '../types';
 import { processImageAttachment, processFileAttachment, formatFileSize } from '../lib/attachments';
+import { ThemeAccent, getThemeOption } from '../lib/settings';
 
 interface MessageInputProps {
   onSendMessage: (
@@ -17,6 +18,7 @@ interface MessageInputProps {
   onTyping?: () => void;
   onStopTyping?: () => void;
   isDarkMode?: boolean;
+  themeAccent?: ThemeAccent;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -29,7 +31,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onTyping,
   onStopTyping,
   isDarkMode = false,
+  themeAccent = 'blue',
 }) => {
+  const themeOption = getThemeOption(themeAccent);
   const [text, setText] = useState('');
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
@@ -367,9 +371,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <button
           type="submit"
           disabled={!hasContent || disabled || isSending || isProcessingFile}
+          style={
+            hasContent && !disabled && !isSending && !isProcessingFile
+              ? { backgroundColor: themeOption.hex }
+              : undefined
+          }
           className={`w-9 h-9 rounded-full flex items-center justify-center transition-all select-none shrink-0 shadow-xs cursor-pointer ${
             hasContent && !disabled && !isSending && !isProcessingFile
-              ? 'bg-[#007AFF] text-white hover:bg-[#0071E3] active:scale-90'
+              ? 'text-white active:scale-90'
               : isDarkMode
               ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed'
               : 'bg-neutral-200 text-neutral-400 cursor-not-allowed'

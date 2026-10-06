@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Users, Sparkles, Lock } from 'lucide-react';
+import { X, Users, Sparkles, Lock, UserPlus, UserCheck } from 'lucide-react';
 import { AvatarProfile } from '../lib/avatars';
 
 export interface OnlineUserItem {
@@ -14,6 +14,8 @@ interface OnlineUsersModalProps {
   onClose: () => void;
   users: OnlineUserItem[];
   onRequestPrivateChat?: (targetSessionId: string, targetUserName: string) => void;
+  isFriend?: (sessionId: string) => boolean;
+  onSendFriendRequest?: (sessionId: string, userName: string, avatarId?: string) => void;
   isDarkMode?: boolean;
 }
 
@@ -22,6 +24,8 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
   onClose,
   users = [],
   onRequestPrivateChat,
+  isFriend,
+  onSendFriendRequest,
   isDarkMode = false,
 }) => {
   // Close on Escape key press
@@ -122,22 +126,42 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
                   </div>
                 </div>
 
-                {/* Right: Badge or Private Chat Button */}
+                {/* Right: Badge or Private Chat / Add Friend Buttons */}
                 {user.isSelf ? (
                   <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0 mr-1" />
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onRequestPrivateChat?.(user.sessionId, user.userName);
-                      onClose();
-                    }}
-                    className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs shrink-0 ml-2"
-                    title={`Send private chat request to ${user.userName}`}
-                  >
-                    <Lock className="w-3.5 h-3.5 stroke-[2.2]" />
-                    <span>Private</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {isFriend?.(user.sessionId) ? (
+                      <span className="text-[11px] font-semibold text-emerald-500 flex items-center gap-1 px-2 py-1 rounded-xl bg-emerald-500/10">
+                        <UserCheck className="w-3 h-3 stroke-[2.5]" />
+                        <span className="hidden sm:inline">Friend</span>
+                      </span>
+                    ) : (
+                      onSendFriendRequest && (
+                        <button
+                          type="button"
+                          onClick={() => onSendFriendRequest(user.sessionId, user.userName, user.avatar.id)}
+                          className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                          title={`Add ${user.userName} as friend`}
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                        </button>
+                      )
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRequestPrivateChat?.(user.sessionId, user.userName);
+                        onClose();
+                      }}
+                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                      title={`Send private chat request to ${user.userName}`}
+                    >
+                      <Lock className="w-3.5 h-3.5 stroke-[2.2]" />
+                      <span>Private</span>
+                    </button>
+                  </div>
                 )}
               </div>
             ))

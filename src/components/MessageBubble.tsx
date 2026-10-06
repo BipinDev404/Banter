@@ -3,6 +3,7 @@ import { ChatMessage } from '../types';
 import { getAvatarForUser, TAPBACK_EMOJIS } from '../lib/avatars';
 import { Reply, FileText, Download, Maximize2, Smile, Plus } from 'lucide-react';
 import { formatFileSize } from '../lib/attachments';
+import { ThemeAccent, getThemeOption } from '../lib/settings';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -12,6 +13,7 @@ interface MessageBubbleProps {
   onOpenImage?: (url: string, name: string) => void;
   onOpenActionsModal?: (message: ChatMessage) => void;
   isDarkMode?: boolean;
+  themeAccent?: ThemeAccent;
   allParticipantNames?: string[];
   showTapbackPicker?: boolean;
   onToggleTapbackPicker?: () => void;
@@ -68,11 +70,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onOpenImage,
   onOpenActionsModal,
   isDarkMode = false,
+  themeAccent = 'blue',
   allParticipantNames = [],
   showTapbackPicker: showTapbackPickerProp,
   onToggleTapbackPicker,
   onCloseTapbackPicker,
 }) => {
+  const themeOption = getThemeOption(themeAccent);
   const [internalShowTapbackPicker, setInternalShowTapbackPicker] = useState(false);
   const [showFloatingCustomInput, setShowFloatingCustomInput] = useState(false);
   const [floatingCustomEmoji, setFloatingCustomEmoji] = useState('');
@@ -447,7 +451,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <Smile className="w-4 h-4" />
             </button>
 
-            {/* Blue Bubble Container */}
+            {/* Sent Bubble Container */}
             <div
               onContextMenu={(e) => e.preventDefault()}
               onDoubleClick={(e) => {
@@ -455,7 +459,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 e.stopPropagation();
                 onOpenActionsModal?.(message);
               }}
-              className="rounded-[22px] rounded-br-[4px] bg-[#007AFF] text-white p-3 shadow-xs relative cursor-pointer active:opacity-95 overflow-hidden flex flex-col gap-1.5 select-none [webkit-touch-callout:none]"
+              style={{ backgroundColor: themeOption.hex }}
+              className="rounded-[22px] rounded-br-[4px] text-white p-3 shadow-xs relative cursor-pointer active:opacity-95 overflow-hidden flex flex-col gap-1.5 select-none [webkit-touch-callout:none]"
               title="Hold or double-click for options, drag to reply"
             >
               {/* Attachment Rendering with Thinner Border */}

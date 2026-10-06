@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, User, Lock, ArrowLeft } from 'lucide-react';
+import { Sun, Moon, User, Lock, ArrowLeft, Users, Search } from 'lucide-react';
 import { BanterLogo } from './BanterLogo';
 import { TypingUser, PrivateChatRoom } from '../types';
 
@@ -9,6 +9,10 @@ interface ChatHeaderProps {
   userName: string;
   onOpenSettings: () => void;
   onOpenOnlineUsers?: () => void;
+  onOpenFriends?: () => void;
+  onOpenSearch?: () => void;
+  friendsCount?: number;
+  pendingRequestsCount?: number;
   typingUsers?: TypingUser[];
   isDarkMode?: boolean;
   onToggleDarkMode?: () => void;
@@ -22,6 +26,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   userName = 'You',
   onOpenSettings,
   onOpenOnlineUsers,
+  onOpenFriends,
+  onOpenSearch,
+  friendsCount = 0,
+  pendingRequestsCount = 0,
   typingUsers = [],
   isDarkMode = false,
   onToggleDarkMode,
@@ -107,6 +115,45 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           />
           <span>{onlineCount}</span>
         </button>
+
+        {/* Friends Center Trigger Button */}
+        {onOpenFriends && (
+          <button
+            type="button"
+            onClick={onOpenFriends}
+            className={`p-2 rounded-xl transition-all cursor-pointer relative ${
+              pendingRequestsCount > 0
+                ? 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20'
+                : isDarkMode
+                ? 'text-neutral-300 hover:text-white hover:bg-neutral-800'
+                : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+            }`}
+            title={`Friends Center (${friendsCount} friends${pendingRequestsCount > 0 ? `, ${pendingRequestsCount} pending requests` : ''})`}
+            aria-label="Open friends center"
+          >
+            <Users className="w-4 h-4" />
+            {pendingRequestsCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900 animate-pulse" />
+            )}
+          </button>
+        )}
+
+        {/* Message Search Trigger Button */}
+        {onOpenSearch && (
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
+              isDarkMode
+                ? 'text-neutral-300 hover:text-white hover:bg-neutral-800'
+                : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+            }`}
+            title="Search messages and attachments"
+            aria-label="Search chat"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Theme Switcher Button */}
         {onToggleDarkMode && (
