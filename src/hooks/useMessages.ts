@@ -17,6 +17,7 @@ import { ActiveUserReader } from './usePresence';
 interface UseMessagesProps {
   userId: string;
   userName: string;
+  avatarId?: string;
   enabled: boolean;
   otherUsers?: ActiveUserReader[];
   onViewLoaded?: () => void;
@@ -28,6 +29,7 @@ export const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 export function useMessages({
   userId,
   userName,
+  avatarId,
   enabled,
   otherUsers = [],
   onViewLoaded,
@@ -128,6 +130,7 @@ export function useMessages({
             id: docSnap.id,
             userId: data.userId || 'anon',
             userName: data.userName || 'Anonymous',
+            avatarId: data.avatarId || undefined,
             message: data.message || '',
             createdAt: timestamp,
             attachment: data.attachment || undefined,
@@ -250,6 +253,7 @@ export function useMessages({
         id: cleanMessageId,
         userId,
         userName,
+        avatarId,
         message: trimmed,
         attachment,
         replyTo,
@@ -264,6 +268,7 @@ export function useMessages({
         const payload: Record<string, any> = {
           userId,
           userName: userName.slice(0, 20),
+          avatarId: avatarId || null,
           message: trimmed,
           createdAt: serverTimestamp(),
         };

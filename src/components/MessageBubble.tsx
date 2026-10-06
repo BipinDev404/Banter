@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { ChatMessage } from '../types';
-import { getAvatarForUser, TAPBACK_EMOJIS } from '../lib/avatars';
-import { Reply, FileText, Download, Maximize2, Smile, Plus } from 'lucide-react';
+import { getAvatarForUser, TAPBACK_REACTIONS, renderReactionIcon } from '../lib/avatars';
+import { Reply, FileText, Download, Maximize2, Smile } from 'lucide-react';
 import { formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
+import { UserAvatar } from './UserAvatar';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -41,7 +42,6 @@ function extractReplyData(message: ChatMessage) {
     };
   }
 
-  // Legacy format check if text starts with Replying to...
   if (message.message && message.message.startsWith('Replying to ')) {
     const lines = message.message.split('\n');
     const firstLine = lines[0];
@@ -78,8 +78,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
   const themeOption = getThemeOption(themeAccent);
   const [internalShowTapbackPicker, setInternalShowTapbackPicker] = useState(false);
-  const [showFloatingCustomInput, setShowFloatingCustomInput] = useState(false);
-  const [floatingCustomEmoji, setFloatingCustomEmoji] = useState('');
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -101,8 +99,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   };
 
   const closePicker = () => {
-    setShowFloatingCustomInput(false);
-    setFloatingCustomEmoji('');
     if (onCloseTapbackPicker) {
       onCloseTapbackPicker();
     } else {
@@ -115,17 +111,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const formattedTime = formatMessageTime(message.createdAt);
   const attachment = message.attachment;
 
-  // Helper to construct a clear snippet describing message text or file attachment
   const getMessageSnippet = (msg: ChatMessage) => {
     const textPart = msg.message?.trim() || '';
     if (msg.attachment) {
-      const attachLabel = msg.attachment.type === 'image' ? '📷 Photo' : `📄 ${msg.attachment.name}`;
+      const attachLabel = msg.attachment.type === 'image' ? 'Photo' : msg.attachment.name;
       return textPart ? `${textPart} (${attachLabel})` : attachLabel;
     }
     return textPart;
   };
 
-  // Long press handler: Holding for 350ms opens ONLY Reaction Box (on phone & desktop)
+  // Long press handler
   const startLongPress = (clientX: number, clientY: number) => {
     triggeredReplyRef.current = false;
     touchStartRef.current = { x: clientX, y: clientY };
@@ -149,7 +144,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  // Touch Handlers for Slide-to-Reply and Long-Press
+  // Touch Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     startLongPress(touch.clientX, touch.clientY);
@@ -165,7 +160,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       cancelLongPress();
     }
 
-    // Horizontal slide gesture
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) < 130) {
       const clampedX = Math.max(-90, Math.min(90, deltaX));
       setDragX(clampedX);
@@ -192,7 +186,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     touchStartRef.current = null;
   };
 
-  // Mouse Handlers for Desktop Slide-to-Reply and Long-Press
+  // Mouse Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     startLongPress(e.clientX, e.clientY);
@@ -233,15 +227,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     touchStartRef.current = null;
   };
 
-  const handleFloatingCustomSubmit = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (floatingCustomEmoji.trim()) {
-      onReact(message.id, floatingCustomEmoji.trim());
-      closePicker();
-    }
-  };
-
-  // Helper to highlight participant names in bold
   const renderMessageContent = (text: string) => {
     if (!text) return null;
 
@@ -263,7 +248,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         );
         if (match) {
           return (
-            <strong key={index} className="font-bold tracking-tight">
+            <strong key={index} className="font-semibold tracking-tight">
               {part}
             </strong>
           );
@@ -275,9 +260,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     }
   };
 
-  const handleSelectReaction = (emoji: string) => {
+  const handleSelectReaction = (reactionId: string) => {
     if (!message.id) return;
-    onReact(message.id, emoji);
+    onReact(message.id, reactionId);
     closePicker();
   };
 
@@ -286,78 +271,42 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const { replyTo: quotedReply, cleanText } = extractReplyData(message);
 
   return (
-    <div className={`flex flex-col relative group my-2.5 sm:my-3.5 select-none no-native-callout ${isSelf ? 'items-end' : 'items-start'}`}>
-      {/* Floating Single Reaction Picker Box */}
+    <div className={`flex flex-col relative group my-2 sm:my-3 select-none no-native-callout ${isSelf ? 'items-end' : 'items-start'}`}>
+      {/* Floating Apple Tapback Reaction Pill with Vector Icons */}
       {showTapbackPicker && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute -top-12 z-30 flex flex-col items-center gap-1.5 p-1.5 rounded-2xl shadow-2xl border animate-in zoom-in-75 slide-in-from-bottom-2 duration-200 ease-out origin-bottom ${
-            isSelf ? 'right-2' : 'left-9'
+          className={`absolute -top-13 z-30 flex items-center gap-1.5 p-1.5 rounded-full shadow-2xl border animate-in zoom-in-75 slide-in-from-bottom-2 duration-200 ease-out origin-bottom ${
+            isSelf ? 'right-2' : 'left-10'
           } ${
             isDarkMode
-              ? 'bg-neutral-900/95 border-neutral-700/80 text-white backdrop-blur-md'
-              : 'bg-white/95 border-neutral-200/90 text-neutral-900 backdrop-blur-md'
+              ? 'bg-[#1C1D22]/95 border-white/15 text-white backdrop-blur-2xl'
+              : 'bg-white/95 border-black/10 text-neutral-900 backdrop-blur-2xl'
           }`}
         >
-          <div className="flex items-center gap-1">
-            {TAPBACK_EMOJIS.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => handleSelectReaction(t.emoji)}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-lg hover:scale-125 transition-transform active:scale-90 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                title={t.label}
-              >
-                <span>{t.emoji}</span>
-              </button>
-            ))}
-
-            {/* Plus Custom Keyboard Emoji Button */}
+          {TAPBACK_REACTIONS.map((t) => (
             <button
-              onClick={() => setShowFloatingCustomInput(!showFloatingCustomInput)}
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 transition-transform cursor-pointer"
-              title="Type custom emoji from keyboard"
+              key={t.id}
+              onClick={() => handleSelectReaction(t.id)}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:scale-125 transition-transform active:scale-90 cursor-pointer hover:bg-black/5 dark:hover:bg-white/10"
+              title={t.name}
             >
-              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              {renderReactionIcon(t.id, 'w-4 h-4')}
             </button>
+          ))}
 
-            <div className="w-px h-5 bg-neutral-300 dark:bg-neutral-700 mx-0.5" />
-            <button
-              onClick={() => {
-                onReplyTo(safeUserName, getMessageSnippet(message));
-                closePicker();
-              }}
-              className="px-2 py-1 rounded-full text-xs font-medium text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-1 cursor-pointer transition-colors"
-              title="Inline Reply"
-            >
-              <Reply className="w-3.5 h-3.5" />
-              <span>Reply</span>
-            </button>
-          </div>
-
-          {/* Floating Custom Keyboard Emoji Input */}
-          {showFloatingCustomInput && (
-            <form onSubmit={handleFloatingCustomSubmit} className="flex items-center gap-1.5 px-1 py-1 w-full animate-in fade-in">
-              <input
-                type="text"
-                value={floatingCustomEmoji}
-                onChange={(e) => setFloatingCustomEmoji(e.target.value)}
-                placeholder="Keyboard emoji..."
-                className={`w-32 px-2 py-1 text-xs rounded-xl border focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  isDarkMode
-                    ? 'bg-neutral-800 border-neutral-700 text-white placeholder-neutral-500'
-                    : 'bg-neutral-100 border-neutral-300 text-neutral-900 placeholder-neutral-400'
-                }`}
-                autoFocus
-              />
-              <button
-                type="submit"
-                disabled={!floatingCustomEmoji.trim()}
-                className="px-2.5 py-1 rounded-xl bg-blue-500 text-white text-[11px] font-semibold disabled:opacity-50 cursor-pointer"
-              >
-                React
-              </button>
-            </form>
-          )}
+          <div className="w-px h-5 bg-neutral-300 dark:bg-neutral-700 mx-0.5" />
+          <button
+            onClick={() => {
+              onReplyTo(safeUserName, getMessageSnippet(message));
+              closePicker();
+            }}
+            className="px-2.5 py-1 rounded-full text-xs font-semibold text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-1 cursor-pointer transition-colors"
+            title="Inline Reply"
+          >
+            <Reply className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>Reply</span>
+          </button>
         </div>
       )}
 
@@ -408,7 +357,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {/* Outgoing Message (Current User) */}
         {isSelf ? (
           <div className="flex flex-col items-end max-w-[85%] sm:max-w-[78%] relative ml-auto">
-            {/* Reaction badges positioned on top of the bubble */}
+            {/* Reaction badges with Apple Pill Design */}
             {hasReactions && (
               <div className="relative -mb-3 z-10 mr-3 flex items-center gap-0.5">
                 <div
@@ -416,19 +365,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     e.stopPropagation();
                     togglePicker();
                   }}
-                  className={`px-2 py-0.5 rounded-full border shadow-xs flex items-center gap-0.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 ${
+                  className={`px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 ${
                     isDarkMode
-                      ? 'bg-neutral-800 border-neutral-700 text-neutral-100'
-                      : 'bg-white border-neutral-200/90 text-neutral-800'
+                      ? 'bg-[#1C1D22] border-white/10 text-neutral-100'
+                      : 'bg-white border-black/10 text-neutral-800'
                   }`}
                 >
-                  {message.reactions!.map((emoji, idx) => (
-                    <span key={idx} className="text-sm">
-                      {emoji}
+                  {message.reactions!.map((reactionKey, idx) => (
+                    <span key={idx} className="flex items-center">
+                      {renderReactionIcon(reactionKey, 'w-3 h-3')}
                     </span>
                   ))}
                 </div>
-                {/* Apple reaction speech tail dots */}
                 <div className="flex flex-col items-center -ml-1">
                   <span className={`w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
                   <span className={`w-1 h-1 rounded-full mt-0.5 ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
@@ -436,7 +384,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </div>
             )}
 
-            {/* Action Smile Trigger Button for Outgoing Message */}
+            {/* Smile Trigger Button */}
             <button
               type="button"
               onClick={(e) => {
@@ -451,7 +399,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               <Smile className="w-4 h-4" />
             </button>
 
-            {/* Sent Bubble Container */}
+            {/* Sent Bubble Container with Apple Geometry & Inner Border */}
             <div
               onContextMenu={(e) => e.preventDefault()}
               onDoubleClick={(e) => {
@@ -460,10 +408,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 onOpenActionsModal?.(message);
               }}
               style={{ backgroundColor: themeOption.hex }}
-              className="rounded-[22px] rounded-br-[4px] text-white p-3 shadow-xs relative cursor-pointer active:opacity-95 overflow-hidden flex flex-col gap-1.5 select-none [webkit-touch-callout:none]"
+              className="rounded-[20px] rounded-br-[4px] text-white p-3 shadow-sm relative cursor-pointer active:opacity-95 overflow-hidden flex flex-col gap-1.5 select-none [webkit-touch-callout:none] border-[0.5px] border-white/20"
               title="Hold or double-click for options, drag to reply"
             >
-              {/* Attachment Rendering with Thinner Border */}
+              {/* Attachment Rendering */}
               {attachment && (
                 <div className="mb-0.5">
                   {attachment.type === 'image' ? (
@@ -472,20 +420,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         e.stopPropagation();
                         onOpenImage?.(attachment.url, attachment.name);
                       }}
-                      onContextMenu={(e) => e.preventDefault()}
-                      onDragStart={(e) => e.preventDefault()}
-                      onDoubleClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onOpenActionsModal?.(message);
-                      }}
-                      className="relative rounded-2xl overflow-hidden max-w-full max-h-[280px] bg-black/10 group/img border-[0.5px] border-white/20 shadow-xs cursor-pointer select-none [webkit-touch-callout:none]"
+                      className="relative rounded-[16px] overflow-hidden max-w-full max-h-[280px] bg-black/10 group/img border-[0.5px] border-white/20 shadow-xs cursor-pointer select-none"
                     >
                       <img
                         src={attachment.url}
                         alt={attachment.name}
-                        onContextMenu={(e) => e.preventDefault()}
-                        onDragStart={(e) => e.preventDefault()}
                         className="w-full h-full object-cover max-h-[280px] transition-transform duration-200 group-hover/img:scale-105 pointer-events-auto select-none"
                       />
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -497,12 +436,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       href={attachment.url}
                       download={attachment.name}
                       onClick={(e) => e.stopPropagation()}
-                      onContextMenu={(e) => e.preventDefault()}
-                      onDoubleClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        onOpenActionsModal?.(message);
-                      }}
                       className="flex items-center gap-3 p-2.5 rounded-2xl bg-white/15 hover:bg-white/25 transition-colors border-[0.5px] border-white/20 text-white min-w-[200px]"
                     >
                       <FileText className="w-6 h-6 shrink-0" />
@@ -516,9 +449,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {/* Distinct Quoted Reply Box (UP) */}
+              {/* Quoted Reply Box */}
               {quotedReply && (
-                <div className="mb-1.5 p-2.5 rounded-xl bg-black/20 border-l-[3px] border-white text-white flex flex-col gap-0.5 text-xs shadow-2xs">
+                <div className="mb-1 p-2.5 rounded-xl bg-black/20 border-l-[3px] border-white text-white flex flex-col gap-0.5 text-xs shadow-2xs">
                   <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/90">
                     <Reply className="w-3 h-3 stroke-[2.5]" />
                     <span>Replying to {quotedReply.userName}</span>
@@ -533,13 +466,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {/* Text Content */}
               {cleanText && (
-                <p className="text-[15px] sm:text-[15.5px] leading-[1.36] break-words whitespace-pre-wrap font-normal tracking-[-0.015em] px-1 select-text">
+                <p className="text-[15px] sm:text-[15.5px] leading-[1.38] break-words whitespace-pre-wrap font-normal tracking-[-0.015em] px-1 select-text">
                   {renderMessageContent(cleanText)}
                 </p>
               )}
             </div>
 
-            {/* Down Timestamp and Read/Delivered Receipt underneath sent message */}
+            {/* Apple Timestamp and Status */}
             <div className="flex items-center justify-end gap-1.5 mt-1 mr-1 select-none">
               {formattedTime && (
                 <span className="text-[10px] sm:text-[10.5px] text-neutral-400 dark:text-neutral-500 font-normal">
@@ -550,21 +483,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.isOptimistic ? (
                 <span className="text-[10px] text-neutral-400 font-medium">Sending...</span>
               ) : message.isRead ? (
-                <span
-                  className="text-[10.5px] text-[#007AFF] dark:text-[#3da0ff] font-semibold flex items-center gap-0.5 cursor-default transition-colors"
-                  title={
-                    message.readBy && message.readBy.length > 0
-                      ? `Seen by ${message.readBy.join(', ')}`
-                      : 'Seen by other users'
-                  }
-                >
+                <span className="text-[10.5px] text-[#007AFF] dark:text-[#3da0ff] font-semibold flex items-center gap-0.5">
                   Read
                 </span>
               ) : (
-                <span
-                  className="text-[10.5px] text-neutral-400 dark:text-neutral-500 font-normal transition-colors"
-                  title="Delivered. Waiting for others to load the chat."
-                >
+                <span className="text-[10.5px] text-neutral-400 dark:text-neutral-500 font-normal">
                   Delivered
                 </span>
               )}
@@ -573,41 +496,35 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         ) : (
           /* Incoming Message (Other Users) */
           <div className="flex items-start gap-2.5 max-w-[88%] sm:max-w-[82%] relative">
-            {/* Profile Pic Avatar */}
-            <div
-              className={`w-8.5 h-8.5 rounded-full ${avatar.bgColor} border border-black/5 dark:border-white/10 flex items-center justify-center text-lg shrink-0 shadow-2xs select-none mt-0.5`}
-              title={safeUserName}
-            >
-              <span>{avatar.emoji}</span>
-            </div>
+            {/* Apple Vector Icon Avatar */}
+            <UserAvatar avatar={avatar} size="sm" className="mt-0.5" />
 
             <div className="flex flex-col items-start relative min-w-0">
-              {/* Sender Name above the bubble */}
+              {/* Sender Name */}
               <span className="text-[11.5px] font-semibold text-neutral-500 dark:text-neutral-400 mb-1 ml-1 select-none">
                 {safeUserName}
               </span>
 
-              {/* Reaction badges positioned on top of the incoming bubble */}
+              {/* Reaction badges with Apple Pill Design */}
               {hasReactions && (
-                <div className="relative -mb-3.5 z-10 ml-3 flex items-center gap-0.5">
+                <div className="relative -mb-3 z-10 ml-3 flex items-center gap-0.5">
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
                       togglePicker();
                     }}
-                    className={`px-2 py-0.5 rounded-full border shadow-xs flex items-center gap-0.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 ${
+                    className={`px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 ${
                       isDarkMode
-                        ? 'bg-neutral-800 border-neutral-700 text-neutral-100'
-                        : 'bg-white border-neutral-200/90 text-neutral-800'
+                        ? 'bg-[#1C1D22] border-white/10 text-neutral-100'
+                        : 'bg-white border-black/10 text-neutral-800'
                     }`}
                   >
-                    {message.reactions!.map((emoji, idx) => (
-                      <span key={idx} className="text-sm">
-                        {emoji}
+                    {message.reactions!.map((reactionKey, idx) => (
+                      <span key={idx} className="flex items-center">
+                        {renderReactionIcon(reactionKey, 'w-3 h-3')}
                       </span>
                     ))}
                   </div>
-                  {/* Connecting tail circles */}
                   <div className="flex flex-col items-center -ml-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
                     <span className={`w-1 h-1 rounded-full mt-0.5 ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
@@ -615,7 +532,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {/* Action Smile Trigger Button for Incoming Message */}
+              {/* Action Smile Trigger Button */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -630,7 +547,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <Smile className="w-4 h-4" />
               </button>
 
-              {/* Apple Gray Bubble Container */}
+              {/* Bubble Container with Apple Neutral Glass */}
               <div
                 onContextMenu={(e) => e.preventDefault()}
                 onDoubleClick={(e) => {
@@ -638,14 +555,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   e.stopPropagation();
                   onOpenActionsModal?.(message);
                 }}
-                className={`rounded-[22px] rounded-tl-[4px] p-3 shadow-xs relative cursor-pointer active:opacity-95 flex flex-col gap-1.5 select-none [webkit-touch-callout:none] ${
+                className={`rounded-[20px] rounded-tl-[4px] p-3 shadow-xs relative cursor-pointer active:opacity-95 flex flex-col gap-1.5 select-none [webkit-touch-callout:none] border-[0.5px] ${
                   isDarkMode
-                    ? 'bg-[#26252A] text-neutral-100'
-                    : 'bg-[#E9E9EB] text-neutral-900'
+                    ? 'bg-[#26252A] text-neutral-100 border-white/10'
+                    : 'bg-[#E9E9EB] text-neutral-900 border-black/5'
                 }`}
                 title="Hold or double-click for options, drag to reply"
               >
-                {/* Attachment Rendering with Thinner Border */}
+                {/* Attachment Rendering */}
                 {attachment && (
                   <div className="mb-0.5">
                     {attachment.type === 'image' ? (
@@ -654,20 +571,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                           e.stopPropagation();
                           onOpenImage?.(attachment.url, attachment.name);
                         }}
-                        onContextMenu={(e) => e.preventDefault()}
-                        onDragStart={(e) => e.preventDefault()}
-                        onDoubleClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          onOpenActionsModal?.(message);
-                        }}
-                        className="relative rounded-2xl overflow-hidden max-w-full max-h-[280px] bg-black/10 group/img border-[0.5px] border-black/10 dark:border-white/10 shadow-xs cursor-pointer select-none [webkit-touch-callout:none]"
+                        className="relative rounded-[16px] overflow-hidden max-w-full max-h-[280px] bg-black/10 group/img border-[0.5px] border-black/10 dark:border-white/10 shadow-xs cursor-pointer select-none"
                       >
                         <img
                           src={attachment.url}
                           alt={attachment.name}
-                          onContextMenu={(e) => e.preventDefault()}
-                          onDragStart={(e) => e.preventDefault()}
                           className="w-full h-full object-cover max-h-[280px] transition-transform duration-200 group-hover/img:scale-105 pointer-events-auto select-none"
                         />
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
@@ -679,12 +587,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         href={attachment.url}
                         download={attachment.name}
                         onClick={(e) => e.stopPropagation()}
-                        onContextMenu={(e) => e.preventDefault()}
-                        onDoubleClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          onOpenActionsModal?.(message);
-                        }}
                         className={`flex items-center gap-3 p-2.5 rounded-2xl border-[0.5px] transition-colors min-w-[200px] ${
                           isDarkMode
                             ? 'bg-white/10 hover:bg-white/20 border-white/10 text-white'
@@ -702,9 +604,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   </div>
                 )}
 
-                {/* Distinct Quoted Reply Box (UP) */}
+                {/* Quoted Reply Box */}
                 {quotedReply && (
-                  <div className={`mb-1.5 p-2.5 rounded-xl border-l-[3px] border-[#007AFF] flex flex-col gap-0.5 text-xs shadow-2xs ${
+                  <div className={`mb-1 p-2.5 rounded-xl border-l-[3px] border-[#007AFF] flex flex-col gap-0.5 text-xs shadow-2xs ${
                     isDarkMode ? 'bg-black/30 text-neutral-200' : 'bg-black/5 text-neutral-800'
                   }`}>
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#007AFF]">
@@ -721,13 +623,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
                 {/* Text Content */}
                 {cleanText && (
-                  <p className="text-[15px] sm:text-[15.5px] leading-[1.36] break-words whitespace-pre-wrap font-normal tracking-[-0.015em] px-1 select-text">
+                  <p className="text-[15px] sm:text-[15.5px] leading-[1.38] break-words whitespace-pre-wrap font-normal tracking-[-0.015em] px-1 select-text">
                     {renderMessageContent(cleanText)}
                   </p>
                 )}
               </div>
 
-              {/* Down Timestamp underneath received message */}
+              {/* Timestamp */}
               {formattedTime && (
                 <div className="flex items-center mt-1 ml-1 select-none">
                   <span className="text-[10px] sm:text-[10.5px] text-neutral-400 dark:text-neutral-500 font-normal">

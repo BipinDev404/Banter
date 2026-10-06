@@ -17,10 +17,11 @@ import { TWO_HOURS_MS } from './useMessages';
 interface UsePrivateChatProps {
   sessionId: string;
   userName: string;
+  avatarId?: string;
   enabled: boolean;
 }
 
-export function usePrivateChat({ sessionId, userName, enabled }: UsePrivateChatProps) {
+export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePrivateChatProps) {
   const [incomingRequest, setIncomingRequest] = useState<PrivateChatRequest | null>(null);
   const [sentRequestStatus, setSentRequestStatus] = useState<{
     id: string;
@@ -182,6 +183,22 @@ export function usePrivateChat({ sessionId, userName, enabled }: UsePrivateChatP
     setPrivateMessages([]);
   }, []);
 
+  // 6b. Open direct chat without confirmation request (e.g. for existing confirmed friends)
+  const openDirectChat = useCallback(
+    (partnerSessionId: string, partnerName: string, partnerAvatarId?: string) => {
+      const roomId = getRoomId(sessionId, partnerSessionId);
+      setActivePrivateChat({
+        roomId,
+        partnerSessionId,
+        partnerName,
+        partnerAvatarId,
+      });
+      setSentRequestStatus(null);
+      setIncomingRequest(null);
+    },
+    [sessionId]
+  );
+
   // 7. Listen for messages in active private room with 2-hour auto cleanup
   useEffect(() => {
     if (!activePrivateChat) {
@@ -222,6 +239,7 @@ export function usePrivateChat({ sessionId, userName, enabled }: UsePrivateChatP
             attachment: data.attachment || undefined,
             reactions: Array.isArray(data.reactions) ? data.reactions : [],
             replyTo: data.replyTo || undefined,
+            avatarId: data.avatarId || undefined,
           });
         });
 
@@ -277,6 +295,7 @@ export function usePrivateChat({ sessionId, userName, enabled }: UsePrivateChatP
         };
 
         if (attachment) payload.attachment = attachment;
+        if (avatarId) payload.avatarId = avatarId;
         if (replyTo) {
           payload.replyTo = {
             userName: replyTo.userName,
@@ -292,7 +311,7 @@ export function usePrivateChat({ sessionId, userName, enabled }: UsePrivateChatP
         return false;
       }
     },
-    [activePrivateChat, sessionId, userName]
+    [activePrivateChat, sessionId, userName, avatarId]
   );
 
   // 9. Toggle reaction on private message
@@ -325,6 +344,7 @@ export function usePrivateChat({ sessionId, userName, enabled }: UsePrivateChatP
     acceptPrivateChat,
     declinePrivateChat,
     leavePrivateChat,
+    openDirectChat,
     sendPrivateMessage,
     togglePrivateReaction,
     clearPrivateError: () => setPrivateError(null),

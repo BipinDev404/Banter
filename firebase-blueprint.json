@@ -20,8 +20,8 @@
         "message": {
           "type": "string",
           "description": "Content of the chat message",
-          "maxLength": 500,
-          "minLength": 1
+          "maxLength": 2000,
+          "minLength": 0
         },
         "createdAt": {
           "type": "string",
@@ -29,7 +29,7 @@
           "description": "Server creation timestamp"
         }
       },
-      "required": ["userId", "userName", "message", "createdAt"]
+      "required": ["userId", "userName", "createdAt"]
     },
     "Presence": {
       "title": "Presence",
@@ -112,6 +112,32 @@
         "participants": { "type": "array" }
       },
       "required": ["friendshipId", "participants"]
+    },
+    "Group": {
+      "title": "Group",
+      "description": "Friend group for work, team, or project conversations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 40 },
+        "avatarId": { "type": "string" },
+        "createdBy": { "type": "string", "maxLength": 128 },
+        "creatorName": { "type": "string", "maxLength": 20 },
+        "members": { "type": "array" }
+      },
+      "required": ["id", "name", "createdBy", "creatorName", "members"]
+    },
+    "GroupMessage": {
+      "title": "GroupMessage",
+      "description": "Message sent in a friend group chat",
+      "type": "object",
+      "properties": {
+        "groupId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 20 },
+        "message": { "type": "string", "maxLength": 2000 }
+      },
+      "required": ["groupId", "userId", "userName"]
     }
   },
   "firestore": {
@@ -134,6 +160,14 @@
     "/friendships/{friendshipId}": {
       "schema": "Friendship",
       "description": "Confirmed mutual friendships"
+    },
+    "/groups/{groupId}": {
+      "schema": "Group",
+      "description": "Friend groups created by users"
+    },
+    "/group_messages/{messageId}": {
+      "schema": "GroupMessage",
+      "description": "Messages exchanged inside friend groups"
     }
   }
 }

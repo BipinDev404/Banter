@@ -1,6 +1,7 @@
 import React from 'react';
 import { TypingUser } from '../types';
 import { getAvatarForUser } from '../lib/avatars';
+import { UserAvatar } from './UserAvatar';
 
 interface TypingIndicatorProps {
   typingUsers?: TypingUser[];
@@ -32,7 +33,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
       ? `${firstUserName} and ${secondUserName} are typing...`
       : `${firstUserName} and ${validTypers.length - 1} others are typing...`;
 
-  const avatar = getAvatarForUser(firstUserName);
+  const avatar = getAvatarForUser(firstUser?.sessionId || firstUserName, firstUserName);
 
   return (
     <div className="flex flex-col items-start my-2 animate-in fade-in slide-in-from-bottom-2 duration-200 select-none">
@@ -42,13 +43,8 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
       </span>
 
       <div className="flex items-end gap-2">
-        {/* Memoji Avatar */}
-        <div
-          className={`w-8 h-8 rounded-full ${avatar.bgColor} border border-black/5 dark:border-white/10 flex items-center justify-center text-base shrink-0 shadow-xs`}
-          title={firstUserName}
-        >
-          <span>{avatar.emoji}</span>
-        </div>
+        {/* Real Vector Icon Avatar */}
+        <UserAvatar avatar={avatar} size="sm" />
 
         {/* Authentic Apple iMessage Typing Bubble with animated wave dots */}
         <div

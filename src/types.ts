@@ -46,6 +46,7 @@ export interface PrivateChatRequest {
   id: string;
   fromSessionId: string;
   fromUserName: string;
+  fromAvatarId?: string;
   toSessionId: string;
   toUserName: string;
   status: 'pending' | 'accepted' | 'declined';
@@ -57,6 +58,7 @@ export interface PrivateChatRoom {
   roomId: string;
   partnerSessionId: string;
   partnerName: string;
+  partnerAvatarId?: string;
 }
 
 export interface TypingUser {
@@ -84,6 +86,25 @@ export interface FriendItem {
   addedAt: number;
 }
 
+export interface GroupMemberInfo {
+  sessionId: string;
+  userName: string;
+  avatarId?: string;
+}
+
+export interface GroupItem {
+  id: string;
+  name: string;
+  avatarId?: string;
+  createdBy: string;
+  creatorName: string;
+  members: string[]; // sessionIds
+  memberDetails: Record<string, GroupMemberInfo>;
+  createdAt: number;
+  lastMessage?: string;
+  lastMessageAt?: number;
+}
+
 export interface BookmarkedMessage {
   id: string;
   messageId: string;
@@ -92,4 +113,3 @@ export interface BookmarkedMessage {
   timestamp: number;
   attachment?: ChatAttachment;
 }
-

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Search, X, Image as ImageIcon, FileText, ArrowRight, MessageSquare, Calendar } from 'lucide-react';
+import { Search, X, Image as ImageIcon, FileText } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { getAvatarForUser } from '../lib/avatars';
+import { UserAvatar } from './UserAvatar';
 
 interface SearchMessagesModalProps {
   isOpen: boolean;
@@ -175,11 +176,7 @@ export const SearchMessagesModal: React.FC<SearchMessagesModalProps> = ({
                       : 'bg-neutral-50/80 border-neutral-200 hover:bg-neutral-100'
                   }`}
                 >
-                  <div
-                    className={`w-9 h-9 rounded-full ${avatar.bgColor} flex items-center justify-center text-lg shrink-0`}
-                  >
-                    <span>{avatar.emoji}</span>
-                  </div>
+                  <UserAvatar avatar={avatar} size="sm" />
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-0.5">

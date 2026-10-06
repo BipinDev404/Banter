@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, ChatAttachment, PrivateChatRoom } from '../types';
 import { getAvatarForUser } from '../lib/avatars';
-import { X, Lock, Send, Plus, ArrowUp, Loader2, LogOut, Shield } from 'lucide-react';
+import { X, Lock, Plus, ArrowUp, Loader2, LogOut, Shield } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import { processImageAttachment, processFileAttachment, formatFileSize } from '../lib/attachments';
+import { UserAvatar } from './UserAvatar';
 
 interface PrivateChatModalProps {
   isOpen: boolean;
@@ -42,14 +43,14 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom
   useEffect(() => {
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen]);
 
-  // Focus input on mount
+  // Focus input
   useEffect(() => {
     if (isOpen) {
       inputRef.current?.focus();
@@ -58,7 +59,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
 
   if (!isOpen || !room) return null;
 
-  const partnerAvatar = getAvatarForUser(room.partnerSessionId, room.partnerName);
+  const partnerAvatar = getAvatarForUser(room.partnerSessionId, room.partnerName, room.partnerAvatarId);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -111,8 +112,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-150">
-      {/* Hidden File Input */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-150 select-none">
       <input
         ref={fileInputRef}
         type="file"
@@ -121,7 +121,6 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
         className="hidden"
       />
 
-      {/* Main Private Chat Container */}
       <div
         className={`relative z-10 w-full max-w-xl h-full sm:h-[90vh] sm:rounded-[32px] flex flex-col overflow-hidden shadow-2xl border transition-colors ${
           isDarkMode
@@ -138,14 +137,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
           } backdrop-blur-xl`}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative">
-              <div
-                className={`w-10 h-10 rounded-full ${partnerAvatar.bgColor} border border-black/5 dark:border-white/10 flex items-center justify-center text-xl shrink-0 shadow-2xs`}
-              >
-                <span>{partnerAvatar.emoji}</span>
-              </div>
-              <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-neutral-900" />
-            </div>
+            <UserAvatar avatar={partnerAvatar} size="md" isOnline={true} showOnlineBadge={true} />
 
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
@@ -154,7 +146,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 flex items-center gap-1 border border-blue-500/20">
                   <Lock className="w-3 h-3 stroke-[2.5]" />
-                  <span>Private</span>
+                  <span>Direct Message</span>
                 </span>
               </div>
               <span className="text-[11px] text-neutral-400 flex items-center gap-1">
@@ -186,10 +178,10 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
                 <Lock className="w-7 h-7 stroke-[2]" />
               </div>
               <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
-                Private Chat Connected
+                Direct Chat Connected
               </p>
               <p className="text-xs text-neutral-400 max-w-xs">
-                Messages sent here are visible only to you and {room.partnerName}. Chat history auto-deletes after 2 hours.
+                Messages sent here are visible only to you and {room.partnerName}.
               </p>
             </div>
           ) : (
@@ -253,7 +245,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
           </div>
         )}
 
-        {/* Private Input Form */}
+        {/* Input Form */}
         <form onSubmit={handleSubmit} className="p-3.5 border-t border-neutral-200 dark:border-neutral-800 flex items-center gap-2">
           <button
             type="button"
@@ -272,7 +264,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
             type="text"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`Private message to ${room.partnerName}...`}
+            placeholder={`Message ${room.partnerName}...`}
             className={`flex-1 rounded-full px-4 py-2 text-sm focus:outline-none transition-colors border ${
               isDarkMode
                 ? 'bg-neutral-800 border-neutral-700 text-white placeholder-neutral-500 focus:border-blue-500'

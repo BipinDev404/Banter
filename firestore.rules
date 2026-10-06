@@ -23,7 +23,7 @@ service cloud.firestore {
     // Message validation helper
     function isValidMessage(data) {
       return data.keys().hasAll(['userId', 'userName', 'message', 'createdAt']) &&
-        data.keys().hasOnly(['userId', 'userName', 'message', 'createdAt', 'attachment', 'reactions', 'replyTo']) &&
+        data.keys().hasOnly(['userId', 'userName', 'message', 'createdAt', 'attachment', 'reactions', 'replyTo', 'avatarId']) &&
         data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
         data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 20 &&
         data.message is string && data.message.size() <= 2000 &&
@@ -38,18 +38,20 @@ service cloud.firestore {
           data.replyTo.keys().hasAll(['userName', 'snippet']) &&
           data.replyTo.userName is string &&
           data.replyTo.snippet is string
-        ));
+        )) &&
+        (!data.keys().hasAny(['avatarId']) || data.avatarId is string);
     }
 
     // Presence validation helper
     function isValidPresence(data) {
       return data.keys().hasAll(['sessionId', 'userName', 'connectedAt', 'lastSeen']) &&
-        data.keys().hasOnly(['sessionId', 'userName', 'connectedAt', 'lastSeen', 'lastReadAt']) &&
+        data.keys().hasOnly(['sessionId', 'userName', 'connectedAt', 'lastSeen', 'lastReadAt', 'avatarId']) &&
         data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 128 &&
         data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 20 &&
         data.connectedAt is timestamp &&
         data.lastSeen == request.time &&
-        (!data.keys().hasAny(['lastReadAt']) || data.lastReadAt is timestamp);
+        (!data.keys().hasAny(['lastReadAt']) || data.lastReadAt is timestamp) &&
+        (!data.keys().hasAny(['avatarId']) || data.avatarId is string);
     }
 
     // Typing validation helper
@@ -129,6 +131,22 @@ service cloud.firestore {
       allow get: if isValidId(sessionId);
       allow create, update: if isValidId(sessionId);
       allow delete: if isValidId(sessionId);
+    }
+
+    // Collection: groups (friend groups)
+    match /groups/{groupId} {
+      allow list: if true;
+      allow get: if isValidId(groupId);
+      allow create, update: if isValidId(groupId);
+      allow delete: if isValidId(groupId);
+    }
+
+    // Collection: group_messages
+    match /group_messages/{messageId} {
+      allow list: if true;
+      allow get: if isValidId(messageId);
+      allow create, update: if isValidId(messageId);
+      allow delete: if isValidId(messageId);
     }
   }
 }

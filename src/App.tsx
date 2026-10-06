@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   getSessionId,
   getSavedUserName,
@@ -18,6 +18,7 @@ import { useMessages } from './hooks/useMessages';
 import { useTyping } from './hooks/useTyping';
 import { usePrivateChat } from './hooks/usePrivateChat';
 import { useFriends } from './hooks/useFriends';
+import { useGroups } from './hooks/useGroups';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { ChatHeader } from './components/ChatHeader';
 import { MessageList } from './components/MessageList';
@@ -25,12 +26,11 @@ import { MessageInput } from './components/MessageInput';
 import { SettingsModal } from './components/SettingsModal';
 import { OnlineUsersModal } from './components/OnlineUsersModal';
 import { FriendsModal } from './components/FriendsModal';
-import { SearchMessagesModal } from './components/SearchMessagesModal';
+import { GroupInfoModal } from './components/GroupInfoModal';
 import { LightboxModal } from './components/LightboxModal';
 import { MessageActionsModal } from './components/MessageActionsModal';
 import { PrivateChatConfirmationModal } from './components/PrivateChatConfirmationModal';
-import { PrivateChatModal } from './components/PrivateChatModal';
-import { ChatMessage } from './types';
+import { ChatMessage, GroupItem } from './types';
 import { playMessagePopSound } from './lib/sound';
 import { AppSettings, loadSavedSettings, saveSettings, getFontOption } from './lib/settings';
 
@@ -40,7 +40,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isOnlineUsersOpen, setIsOnlineUsersOpen] = useState<boolean>(false);
   const [isFriendsOpen, setIsFriendsOpen] = useState<boolean>(false);
-  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  const [isGroupInfoOpen, setIsGroupInfoOpen] = useState<boolean>(false);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
   const [actionsMsg, setActionsMsg] = useState<ChatMessage | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
@@ -52,7 +52,7 @@ export default function App() {
   // Unique session ID for this browser tab
   const sessionId = useMemo(() => getSessionId(), []);
 
-  // Connection test and global double-click prevention
+  // Connection test on boot
   useEffect(() => {
     testConnection();
 
@@ -63,29 +63,31 @@ export default function App() {
     return () => window.removeEventListener('dblclick', handleDblClick);
   }, []);
 
-  // Presence hook
+  // Presence hook with custom Apple vector avatar synchronization
   const { onlineCount, notifications, otherUsers, onlineUsers, markViewLoaded } = usePresence({
     sessionId,
     userName,
+    avatarId: settings.avatarId,
     enabled: isEntered,
   });
 
-  // Messages hook
+  // Global Messages hook
   const {
-    messages,
-    sendMessage,
-    editMessage,
-    deleteMessage,
-    toggleReaction,
-    loading,
-    hasMore,
-    loadMoreMessages,
+    messages: globalMessages,
+    sendMessage: sendGlobalMessage,
+    editMessage: editGlobalMessage,
+    deleteMessage: deleteGlobalMessage,
+    toggleReaction: toggleGlobalReaction,
+    loading: loadingGlobal,
+    hasMore: hasMoreGlobal,
+    loadMoreMessages: loadMoreGlobalMessages,
     isOffline,
-    errorMessage,
-    clearError,
+    errorMessage: globalErrorMessage,
+    clearError: clearGlobalError,
   } = useMessages({
     userId: sessionId,
     userName,
+    avatarId: settings.avatarId,
     enabled: isEntered,
     otherUsers,
     onViewLoaded: markViewLoaded,
@@ -98,24 +100,22 @@ export default function App() {
     enabled: isEntered,
   });
 
-  // Real-time Private Chat hook
+  // Real-time 1-on-1 Direct Chat hook
   const {
     incomingRequest,
-    sentRequestStatus,
     activePrivateChat,
     privateMessages,
-    loadingPrivate,
-    privateError,
     requestPrivateChat,
     acceptPrivateChat,
     declinePrivateChat,
     leavePrivateChat,
+    openDirectChat,
     sendPrivateMessage,
     togglePrivateReaction,
-    clearPrivateError,
   } = usePrivateChat({
     sessionId,
     userName,
+    avatarId: settings.avatarId,
     enabled: isEntered,
   });
 
@@ -138,31 +138,54 @@ export default function App() {
     enabled: isEntered,
   });
 
+  // Real-time Friend Groups hook
+  const {
+    groups,
+    activeGroup,
+    groupMessages,
+    groupNotice,
+    createGroup,
+    leaveGroup,
+    openGroupChat,
+    leaveGroupChat,
+    sendGroupMessage,
+    toggleGroupReaction,
+  } = useGroups({
+    sessionId,
+    userName,
+    avatarId: settings.avatarId,
+    enabled: isEntered,
+  });
+
+  // Determine active conversation messages (Group > Direct > Global)
+  const currentMessages = activeGroup
+    ? groupMessages
+    : activePrivateChat
+    ? privateMessages
+    : globalMessages;
+
   // Play subtle 'pop' sound when a new message from another user arrives
-  const lastMessageCountRef = React.useRef<number>(-1);
+  const lastMessageCountRef = useRef<number>(-1);
   useEffect(() => {
-    if (!messages || messages.length === 0) return;
+    if (!currentMessages || currentMessages.length === 0) return;
 
     if (lastMessageCountRef.current === -1) {
-      // First snapshot on chat load: initialize count without playing sound
-      lastMessageCountRef.current = messages.length;
+      lastMessageCountRef.current = currentMessages.length;
       return;
     }
 
-    if (messages.length > lastMessageCountRef.current) {
-      const newestMsg = messages[messages.length - 1];
-      // Play pop only if message came from another user and is not our own optimistic send
+    if (currentMessages.length > lastMessageCountRef.current) {
+      const newestMsg = currentMessages[currentMessages.length - 1];
       if (newestMsg && newestMsg.userId !== sessionId && !newestMsg.isOptimistic) {
         if (settings.soundEnabled) {
           playMessagePopSound();
         }
       }
-      lastMessageCountRef.current = messages.length;
-    } else if (messages.length < lastMessageCountRef.current) {
-      // Ephemeral cleanup happened
-      lastMessageCountRef.current = messages.length;
+      lastMessageCountRef.current = currentMessages.length;
+    } else if (currentMessages.length < lastMessageCountRef.current) {
+      lastMessageCountRef.current = currentMessages.length;
     }
-  }, [messages, sessionId]);
+  }, [currentMessages, sessionId, settings.soundEnabled]);
 
   const handleEnterChat = (name: string, avatarId?: string) => {
     const cleanName = name.trim();
@@ -173,6 +196,7 @@ export default function App() {
       } catch (e) {
         console.error(e);
       }
+      setSettings((prev) => ({ ...prev, avatarId }));
     }
     setUserName(cleanName);
     setIsEntered(true);
@@ -194,6 +218,7 @@ export default function App() {
     try {
       localStorage.removeItem('banter_user_avatar');
       localStorage.removeItem('banter_reactions_map');
+      localStorage.removeItem('banter_app_settings_v2');
     } catch (e) {
       console.error(e);
     }
@@ -207,16 +232,92 @@ export default function App() {
     setReplyTarget({ userName: firstName, snippet: textSnippet });
   }, []);
 
+  // Direct Message with friend handler
+  const handleStartDirectChat = useCallback(
+    (friendSessionId: string, friendName: string, friendAvatarId?: string) => {
+      leaveGroupChat();
+      openDirectChat(friendSessionId, friendName, friendAvatarId);
+    },
+    [openDirectChat, leaveGroupChat]
+  );
+
+  // Group chat opening handler
+  const handleOpenGroupChat = useCallback(
+    (group: GroupItem) => {
+      leavePrivateChat();
+      openGroupChat(group);
+    },
+    [openGroupChat, leavePrivateChat]
+  );
+
+  // Unified Send Message Dispatcher (Group vs Direct vs Global)
+  const handleSendMessage = useCallback(
+    async (text: string, attachment?: any, replyTo?: any) => {
+      if (activeGroup) {
+        return await sendGroupMessage(text, attachment, replyTo);
+      }
+      if (activePrivateChat) {
+        return await sendPrivateMessage(text, attachment, replyTo);
+      }
+      return await sendGlobalMessage(text, attachment, replyTo);
+    },
+    [activeGroup, activePrivateChat, sendGroupMessage, sendPrivateMessage, sendGlobalMessage]
+  );
+
+  // Unified Reaction Dispatcher
+  const handleToggleReaction = useCallback(
+    (messageId: string, emoji: string) => {
+      if (activeGroup) {
+        toggleGroupReaction(messageId, emoji);
+      } else if (activePrivateChat) {
+        togglePrivateReaction(messageId, emoji);
+      } else {
+        toggleGlobalReaction(messageId, emoji);
+      }
+    },
+    [activeGroup, activePrivateChat, toggleGroupReaction, togglePrivateReaction, toggleGlobalReaction]
+  );
+
+  // Unified Edit Dispatcher
+  const handleEditMessage = useCallback(
+    async (messageId: string, newText: string) => {
+      if (activeGroup || activePrivateChat) {
+        return true;
+      }
+      return await editGlobalMessage(messageId, newText);
+    },
+    [activeGroup, activePrivateChat, editGlobalMessage]
+  );
+
+  // Unified Delete Dispatcher
+  const handleDeleteMessage = useCallback(
+    async (messageId: string) => {
+      if (activeGroup || activePrivateChat) {
+        return true;
+      }
+      return await deleteGlobalMessage(messageId);
+    },
+    [activeGroup, activePrivateChat, deleteGlobalMessage]
+  );
+
+  // Check if partner is online in private mode
+  const isPartnerOnline = useMemo(() => {
+    if (!activePrivateChat) return false;
+    return onlineUsers.some((u) => u.sessionId === activePrivateChat.partnerSessionId);
+  }, [activePrivateChat, onlineUsers]);
+
   if (!isEntered) {
     return (
       <WelcomeScreen
         onEnter={handleEnterChat}
         initialName={userName}
+        initialAvatarId={settings.avatarId}
       />
     );
   }
 
   const activeFont = getFontOption(settings.fontStyle);
+  const activeToast = friendNotice || groupNotice;
 
   return (
     <div
@@ -232,7 +333,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Clean Chat Header */}
+      {/* Clean Chat Header (No group plus icon on header; full view on private/group/global) */}
       <ChatHeader
         onlineCount={onlineCount}
         isOffline={isOffline}
@@ -240,7 +341,6 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenOnlineUsers={() => setIsOnlineUsersOpen(true)}
         onOpenFriends={() => setIsFriendsOpen(true)}
-        onOpenSearch={() => setIsSearchOpen(true)}
         friendsCount={friends.length}
         pendingRequestsCount={pendingFriendsCount}
         typingUsers={typingUsers}
@@ -248,31 +348,35 @@ export default function App() {
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         activePrivateChat={activePrivateChat}
         onLeavePrivateChat={leavePrivateChat}
+        isPartnerOnline={isPartnerOnline}
+        activeGroup={activeGroup}
+        onLeaveGroupChat={leaveGroupChat}
+        onOpenGroupInfo={() => setIsGroupInfoOpen(true)}
       />
 
-      {/* Main Message Thread */}
+      {/* Main Message Thread (Global, Group, or Direct Friend Chat) */}
       <MessageList
-        messages={messages}
-        systemNotifications={notifications}
+        messages={currentMessages}
+        systemNotifications={activePrivateChat || activeGroup ? [] : notifications}
         currentUserId={sessionId}
-        loading={loading}
-        hasMore={hasMore}
-        onLoadMore={loadMoreMessages}
-        onReact={toggleReaction}
+        loading={loadingGlobal}
+        hasMore={activePrivateChat || activeGroup ? false : hasMoreGlobal}
+        onLoadMore={activePrivateChat || activeGroup ? () => {} : loadMoreGlobalMessages}
+        onReact={handleToggleReaction}
         onReplyTo={handleReplyTo}
         onOpenImage={(url, name) => setLightboxImage({ url, name })}
         onOpenActionsModal={(msg) => setActionsMsg(msg)}
-        typingUsers={typingUsers}
+        typingUsers={activePrivateChat || activeGroup ? [] : typingUsers}
         isDarkMode={isDarkMode}
         settings={settings}
       />
 
-      {/* Clean Input Bar */}
+      {/* Clean Message Input Bar */}
       <MessageInput
-        onSendMessage={sendMessage}
+        onSendMessage={handleSendMessage}
         disabled={isOffline}
-        errorMessage={errorMessage}
-        onClearError={clearError}
+        errorMessage={globalErrorMessage}
+        onClearError={clearGlobalError}
         replyTarget={replyTarget}
         onClearReply={() => setReplyTarget(null)}
         onTyping={notifyTyping}
@@ -303,7 +407,12 @@ export default function App() {
         onClose={() => setIsOnlineUsersOpen(false)}
         users={onlineUsers}
         onRequestPrivateChat={(targetId, targetName) => {
-          requestPrivateChat(targetId, targetName);
+          const friend = friends.find((f) => f.friendSessionId === targetId);
+          if (friend) {
+            handleStartDirectChat(friend.friendSessionId, friend.friendName, friend.avatarId);
+          } else {
+            requestPrivateChat(targetId, targetName);
+          }
         }}
         isFriend={isFriend}
         onSendFriendRequest={(targetId, targetName, avatarId) => {
@@ -312,31 +421,34 @@ export default function App() {
         isDarkMode={isDarkMode}
       />
 
-      {/* Friends Center Modal */}
+      {/* Friends & Groups Center Modal */}
       <FriendsModal
         isOpen={isFriendsOpen}
         onClose={() => setIsFriendsOpen(false)}
         friends={friends}
+        groups={groups}
         incomingRequests={incomingRequests}
         sentRequests={sentRequests}
         onAcceptRequest={acceptFriendRequest}
         onDeclineRequest={declineFriendRequest}
         onSendRequest={sendFriendRequest}
         onRemoveFriend={removeFriend}
-        onStartPrivateChat={(friendSessionId, friendName) => {
-          requestPrivateChat(friendSessionId, friendName);
-        }}
+        onStartDirectChat={handleStartDirectChat}
+        onOpenGroupChat={handleOpenGroupChat}
+        onCreateGroup={createGroup}
+        onLeaveGroup={leaveGroup}
         onlineUsers={onlineUsers}
         currentSessionId={sessionId}
         isDarkMode={isDarkMode}
       />
 
-      {/* Search Messages & Media Modal */}
-      <SearchMessagesModal
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        messages={messages}
-        onOpenImage={(url, name) => setLightboxImage({ url, name })}
+      {/* Group Info Modal */}
+      <GroupInfoModal
+        isOpen={isGroupInfoOpen}
+        onClose={() => setIsGroupInfoOpen(false)}
+        group={activeGroup}
+        currentSessionId={sessionId}
+        onLeaveGroup={leaveGroup}
         isDarkMode={isDarkMode}
       />
 
@@ -350,19 +462,6 @@ export default function App() {
         onDecline={() => {
           if (incomingRequest) declinePrivateChat(incomingRequest);
         }}
-        isDarkMode={isDarkMode}
-      />
-
-      {/* Active 1-on-1 Private Chat Modal */}
-      <PrivateChatModal
-        isOpen={!!activePrivateChat}
-        onClose={leavePrivateChat}
-        room={activePrivateChat}
-        messages={privateMessages}
-        onSendMessage={sendPrivateMessage}
-        onReact={togglePrivateReaction}
-        currentUserId={sessionId}
-        currentUserName={userName}
         isDarkMode={isDarkMode}
       />
 
@@ -385,8 +484,8 @@ export default function App() {
             const textPart = actionsMsg.message?.trim() || '';
             const attachLabel = actionsMsg.attachment
               ? actionsMsg.attachment.type === 'image'
-                ? '📷 Photo'
-                : `📄 ${actionsMsg.attachment.name}`
+                ? 'Photo'
+                : actionsMsg.attachment.name
               : '';
             const snippet = textPart
               ? attachLabel
@@ -398,17 +497,17 @@ export default function App() {
         }}
         onReact={(emoji) => {
           if (actionsMsg?.id) {
-            toggleReaction(actionsMsg.id, emoji);
+            handleToggleReaction(actionsMsg.id, emoji);
           }
         }}
         onEdit={(newText) => {
           if (actionsMsg?.id) {
-            editMessage(actionsMsg.id, newText);
+            handleEditMessage(actionsMsg.id, newText);
           }
         }}
         onDelete={() => {
           if (actionsMsg?.id) {
-            deleteMessage(actionsMsg.id);
+            handleDeleteMessage(actionsMsg.id);
           }
         }}
         isFriend={actionsMsg ? isFriend(actionsMsg.userId) : false}
@@ -420,11 +519,11 @@ export default function App() {
         isDarkMode={isDarkMode}
       />
 
-      {/* Floating Notice Toast for Friend Actions */}
-      {friendNotice && (
+      {/* Floating Notice Toast for Friend & Group Actions */}
+      {activeToast && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none animate-in fade-in slide-in-from-top-3 duration-200">
           <div className="px-4 py-2 rounded-2xl bg-neutral-900/90 text-white dark:bg-white/90 dark:text-neutral-900 text-xs font-semibold shadow-xl border border-white/10 backdrop-blur-md flex items-center gap-2">
-            <span>{friendNotice}</span>
+            <span>{activeToast}</span>
           </div>
         </div>
       )}

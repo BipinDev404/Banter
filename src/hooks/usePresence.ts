@@ -16,6 +16,7 @@ import { OnlineUserItem } from '../components/OnlineUsersModal';
 export interface ActiveUserReader {
   sessionId: string;
   userName: string;
+  avatarId?: string;
   lastSeen: number;
   lastReadAt: number;
 }
@@ -23,6 +24,7 @@ export interface ActiveUserReader {
 interface UsePresenceOptions {
   sessionId: string;
   userName: string;
+  avatarId?: string;
   enabled: boolean;
 }
 
@@ -30,14 +32,14 @@ const TWO_MINUTES_MS = 2 * 60 * 1000;
 const HEARTBEAT_INTERVAL_MS = 15 * 1000; // 15 seconds
 const TIMEOUT_THRESHOLD_MS = 45 * 1000; // 45 seconds offline threshold
 
-export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions) {
+export function usePresence({ sessionId, userName, avatarId, enabled }: UsePresenceOptions) {
   const [onlineCount, setOnlineCount] = useState<number>(1);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
   const [otherUsers, setOtherUsers] = useState<ActiveUserReader[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUserItem[]>([]);
 
   // Track sessions and their last known state
-  const prevSessionsRef = useRef<Map<string, { userName: string; lastSeen: number }>>(new Map());
+  const prevSessionsRef = useRef<Map<string, { userName: string; avatarId?: string; lastSeen: number }>>(new Map());
   const isInitialLoadRef = useRef(true);
   const connectedAtRef = useRef<Timestamp | null>(null);
 
@@ -82,21 +84,19 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
     if (!enabled || !userName || !sessionId) return;
     try {
       const presenceDocRef = doc(db, 'presence', sessionId);
-      await setDoc(
-        presenceDocRef,
-        {
-          sessionId,
-          userName: userName.slice(0, 20),
-          lastSeen: serverTimestamp(),
-          lastReadAt: serverTimestamp(),
-          connectedAt: connectedAtRef.current || serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const data: Record<string, any> = {
+        sessionId,
+        userName: userName.slice(0, 20),
+        lastSeen: serverTimestamp(),
+        lastReadAt: serverTimestamp(),
+        connectedAt: connectedAtRef.current || serverTimestamp(),
+      };
+      if (avatarId) data.avatarId = avatarId;
+      await setDoc(presenceDocRef, data, { merge: true });
     } catch {
       // non-blocking
     }
-  }, [enabled, sessionId, userName]);
+  }, [enabled, sessionId, userName, avatarId]);
 
   // 3. Presence registration & heartbeat
   useEffect(() => {
@@ -112,6 +112,10 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
           lastSeen: serverTimestamp(),
           lastReadAt: serverTimestamp(),
         };
+
+        if (avatarId) {
+          payload.avatarId = avatarId;
+        }
 
         if (isFirstTime || !connectedAtRef.current) {
           payload.connectedAt = serverTimestamp();
@@ -161,7 +165,7 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
       window.removeEventListener('pagehide', handleLeave);
       handleLeave();
     };
-  }, [sessionId, userName, enabled, markViewLoaded]);
+  }, [sessionId, userName, avatarId, enabled, markViewLoaded]);
 
   // 4. Listen to all active presence docs in Firestore
   useEffect(() => {
@@ -172,7 +176,7 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
       presenceCol,
       (snapshot) => {
         const now = Date.now();
-        const currentActive = new Map<string, { userName: string; lastSeen: number; connectedAt?: number }>();
+        const currentActive = new Map<string, { userName: string; avatarId?: string; lastSeen: number; connectedAt?: number }>();
         const readers: ActiveUserReader[] = [];
 
         snapshot.forEach((docSnap) => {
@@ -191,6 +195,7 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
           if (now - lastSeenTime < TIMEOUT_THRESHOLD_MS) {
             currentActive.set(docSnap.id, {
               userName: data.userName || 'Someone',
+              avatarId: data.avatarId || undefined,
               lastSeen: lastSeenTime,
               connectedAt: connectedTime,
             });
@@ -200,6 +205,7 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
               readers.push({
                 sessionId: docSnap.id,
                 userName: data.userName || 'Someone',
+                avatarId: data.avatarId || undefined,
                 lastSeen: lastSeenTime,
                 lastReadAt: lastReadTime,
               });
@@ -222,7 +228,7 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
           sessionId,
           userName: userName || 'You',
           isSelf: true,
-          avatar: getAvatarForUser(sessionId, userName),
+          avatar: getAvatarForUser(sessionId, userName, avatarId),
         });
 
         // Add other active participants
@@ -232,7 +238,7 @@ export function usePresence({ sessionId, userName, enabled }: UsePresenceOptions
               sessionId: sId,
               userName: user.userName,
               isSelf: false,
-              avatar: getAvatarForUser(sId, user.userName),
+              avatar: getAvatarForUser(sId, user.userName, user.avatarId),
             });
           }
         });
