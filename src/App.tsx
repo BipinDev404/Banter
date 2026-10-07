@@ -30,6 +30,7 @@ import { GroupInfoModal } from './components/GroupInfoModal';
 import { LightboxModal } from './components/LightboxModal';
 import { MessageActionsModal } from './components/MessageActionsModal';
 import { PrivateChatConfirmationModal } from './components/PrivateChatConfirmationModal';
+import { FriendAlertModal, FriendAlertData } from './components/FriendAlertModal';
 import { ChatMessage, GroupItem } from './types';
 import { playMessagePopSound } from './lib/sound';
 import { AppSettings, loadSavedSettings, saveSettings, getFontOption } from './lib/settings';
@@ -43,11 +44,41 @@ export default function App() {
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState<boolean>(false);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
   const [actionsMsg, setActionsMsg] = useState<ChatMessage | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('banter_dark_mode');
+      if (saved !== null) {
+        return saved === 'true';
+      }
+    } catch {
+      // fallback
+    }
+    return true; // Default dark: always open in dark/black
+  });
   const [settings, setSettings] = useState<AppSettings>(() => loadSavedSettings());
+  const [friendAlertData, setFriendAlertData] = useState<FriendAlertData | null>(null);
+  const dismissedRequestsRef = useRef<Set<string>>(new Set());
 
   // Active inline reply target
   const [replyTarget, setReplyTarget] = useState<{ userName: string; snippet?: string } | null>(null);
+
+  // Sync theme changes with html element and persistence
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      document.documentElement.style.backgroundColor = '#000000';
+      document.documentElement.style.colorScheme = 'dark';
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.documentElement.style.backgroundColor = '#F2F2F7';
+      document.documentElement.style.colorScheme = 'light';
+    }
+    try {
+      localStorage.setItem('banter_dark_mode', isDarkMode ? 'true' : 'false');
+    } catch {
+      // storage error
+    }
+  }, [isDarkMode]);
 
   // Unique session ID for this browser tab
   const sessionId = useMemo(() => getSessionId(), []);
@@ -137,6 +168,39 @@ export default function App() {
     avatarId: settings.avatarId,
     enabled: isEntered,
   });
+
+  // Prompt popup whenever an incoming friend request is detected
+  useEffect(() => {
+    if (!isEntered) return;
+    if (incomingRequests.length > 0) {
+      const unhandled = incomingRequests.find((r) => !dismissedRequestsRef.current.has(r.id));
+      if (unhandled && !friendAlertData) {
+        setFriendAlertData({
+          type: 'incoming',
+          targetSessionId: unhandled.fromSessionId,
+          targetUserName: unhandled.fromUserName,
+          targetAvatarId: unhandled.fromAvatarId,
+          requestId: unhandled.id,
+        });
+      }
+    }
+  }, [incomingRequests, isEntered, friendAlertData]);
+
+  const handleSendFriendRequestWithPopup = useCallback(
+    async (targetId: string, targetName: string, avatarId?: string) => {
+      const res = await sendFriendRequest(targetId, targetName, avatarId);
+      if (res.success) {
+        setFriendAlertData({
+          type: 'sent',
+          targetSessionId: targetId,
+          targetUserName: targetName,
+          targetAvatarId: avatarId,
+        });
+      }
+      return res;
+    },
+    [sendFriendRequest]
+  );
 
   // Real-time Friend Groups hook
   const {
@@ -323,12 +387,12 @@ export default function App() {
     <div
       style={{ fontFamily: activeFont.fontFamily }}
       className={`h-[100dvh] w-full flex flex-col overflow-hidden transition-colors ${
-        isDarkMode ? 'dark bg-[#121316] text-neutral-100' : 'bg-white text-neutral-900'
+        isDarkMode ? 'dark bg-black text-white' : 'bg-[#F2F2F7] text-neutral-900'
       }`}
     >
       {/* Offline Alert */}
       {isOffline && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs px-4 py-1.5 text-center select-none font-medium">
+        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-500 text-xs px-4 py-1.5 text-center select-none font-medium">
           You&apos;re offline. Reconnecting to chat...
         </div>
       )}
@@ -345,7 +409,7 @@ export default function App() {
         pendingRequestsCount={pendingFriendsCount}
         typingUsers={typingUsers}
         isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+        onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
         activePrivateChat={activePrivateChat}
         onLeavePrivateChat={leavePrivateChat}
         isPartnerOnline={isPartnerOnline}
@@ -385,7 +449,7 @@ export default function App() {
         themeAccent={settings.themeAccent}
       />
 
-      {/* Profile & Appearance Settings Modal */}
+      {/* Profile Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
@@ -393,12 +457,6 @@ export default function App() {
         onSaveName={handleSaveNewName}
         onClearData={handleClearData}
         settings={settings}
-        onUpdateSettings={(newSettings) => {
-          setSettings(newSettings);
-          saveSettings(newSettings);
-        }}
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
       />
 
       {/* Online Users List Modal */}
@@ -416,7 +474,7 @@ export default function App() {
         }}
         isFriend={isFriend}
         onSendFriendRequest={(targetId, targetName, avatarId) => {
-          sendFriendRequest(targetId, targetName, avatarId);
+          handleSendFriendRequestWithPopup(targetId, targetName, avatarId);
         }}
         isDarkMode={isDarkMode}
       />
@@ -440,6 +498,7 @@ export default function App() {
         onlineUsers={onlineUsers}
         currentSessionId={sessionId}
         isDarkMode={isDarkMode}
+        onShowFriendPopup={(data) => setFriendAlertData(data)}
       />
 
       {/* Group Info Modal */}
@@ -513,8 +572,54 @@ export default function App() {
         isFriend={actionsMsg ? isFriend(actionsMsg.userId) : false}
         onAddFriend={() => {
           if (actionsMsg) {
-            sendFriendRequest(actionsMsg.userId, actionsMsg.userName, actionsMsg.avatarId);
+            handleSendFriendRequestWithPopup(actionsMsg.userId, actionsMsg.userName, actionsMsg.avatarId);
           }
+        }}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Friend Action & Incoming Request Alert Modal */}
+      <FriendAlertModal
+        isOpen={!!friendAlertData}
+        onClose={() => setFriendAlertData(null)}
+        data={friendAlertData}
+        onAccept={() => {
+          if (!friendAlertData) return;
+          const req =
+            incomingRequests.find((r) => r.id === friendAlertData.requestId) ||
+            incomingRequests.find((r) => r.fromSessionId === friendAlertData.targetSessionId);
+          if (req) {
+            acceptFriendRequest(req);
+            setFriendAlertData({
+              type: 'accepted',
+              targetSessionId: req.fromSessionId,
+              targetUserName: req.fromUserName,
+              targetAvatarId: req.fromAvatarId,
+            });
+          }
+        }}
+        onDecline={() => {
+          if (!friendAlertData) return;
+          const req =
+            incomingRequests.find((r) => r.id === friendAlertData.requestId) ||
+            incomingRequests.find((r) => r.fromSessionId === friendAlertData.targetSessionId);
+          if (req) {
+            dismissedRequestsRef.current.add(req.id);
+            declineFriendRequest(req);
+          }
+          setFriendAlertData(null);
+        }}
+        onStartChat={() => {
+          if (friendAlertData?.targetSessionId && friendAlertData.targetUserName) {
+            handleStartDirectChat(
+              friendAlertData.targetSessionId,
+              friendAlertData.targetUserName,
+              friendAlertData.targetAvatarId
+            );
+          }
+          setFriendAlertData(null);
+          setIsFriendsOpen(false);
+          setIsOnlineUsersOpen(false);
         }}
         isDarkMode={isDarkMode}
       />

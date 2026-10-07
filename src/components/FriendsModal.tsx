@@ -5,20 +5,20 @@ import {
   UserPlus,
   UserCheck,
   Check,
-  Lock,
   Search,
   Trash2,
   Clock,
   Plus,
   FolderPlus,
   ArrowRight,
-  MessageCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { FriendItem, FriendRequest, GroupItem } from '../types';
 import { getAvatarForUser, getGroupAvatar, renderAvatarIcon } from '../lib/avatars';
 import { OnlineUserItem } from './OnlineUsersModal';
 import { UserAvatar } from './UserAvatar';
 import { CreateGroupModal } from './CreateGroupModal';
+import { FriendAlertData } from './FriendAlertModal';
 
 interface FriendsModalProps {
   isOpen: boolean;
@@ -43,6 +43,7 @@ interface FriendsModalProps {
   onlineUsers: OnlineUserItem[];
   currentSessionId: string;
   isDarkMode?: boolean;
+  onShowFriendPopup?: (data: FriendAlertData) => void;
 }
 
 type FriendsTab = 'friends' | 'groups' | 'requests' | 'add';
@@ -65,6 +66,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
   onlineUsers = [],
   currentSessionId,
   isDarkMode = false,
+  onShowFriendPopup,
 }) => {
   const [activeTab, setActiveTab] = useState<FriendsTab>('friends');
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,7 +113,15 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
     if (foundOnline) {
       const res = await onSendRequest(foundOnline.sessionId, foundOnline.userName, foundOnline.avatar.id);
       setAddFeedback({ message: res.message, isError: !res.success });
-      if (res.success) setUsernameInput('');
+      if (res.success) {
+        setUsernameInput('');
+        onShowFriendPopup?.({
+          type: 'sent',
+          targetSessionId: foundOnline.sessionId,
+          targetUserName: foundOnline.userName,
+          targetAvatarId: foundOnline.avatar.id,
+        });
+      }
     } else {
       setAddFeedback({
         message: `User "${targetName}" is not currently online in the room. You can add users directly from Active Users!`,
@@ -130,56 +140,55 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
           role="dialog"
           aria-modal="true"
           aria-labelledby="friends-title"
-          className={`relative z-10 w-full max-w-lg h-[88vh] sm:h-[620px] rounded-[32px] border shadow-2xl flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 ${
+          className={`relative z-10 w-full max-w-lg h-[88vh] sm:h-[620px] rounded-[28px] border shadow-2xl flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 backdrop-blur-2xl ${
             isDarkMode
-              ? 'bg-[#16171B]/95 border-neutral-800 text-white'
-              : 'bg-white/95 border-neutral-200 text-neutral-900'
-          } backdrop-blur-2xl`}
+              ? 'border-white/10 bg-[#1c1c1e] text-white'
+              : 'border-black/10 bg-white text-neutral-900 shadow-xl'
+          }`}
         >
+          {/* Apple subtle top light catching highlight */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
           {/* Header */}
-          <div
-            className={`px-5 py-4 border-b flex items-center justify-between shrink-0 ${
-              isDarkMode ? 'border-neutral-800/80 bg-neutral-900/50' : 'border-neutral-100 bg-neutral-50/50'
-            }`}
-          >
+          <div className={`px-5 py-4 border-b flex items-center justify-between shrink-0 ${
+            isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-black/5 bg-black/[0.01]'
+          }`}>
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center shadow-xs">
+              <div className="w-9 h-9 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center shadow-xs">
                 <Users className="w-5 h-5 stroke-[2.2]" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 id="friends-title" className="text-base font-bold tracking-tight leading-none">
+                  <h2 id="friends-title" className={`text-base font-bold tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
                     Friends & Groups
                   </h2>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500">
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">
                     {friends.length} {friends.length === 1 ? 'friend' : 'friends'} • {groups.length} {groups.length === 1 ? 'group' : 'groups'}
                   </span>
                 </div>
                 <p className="text-[11px] text-neutral-400 mt-0.5">
-                  Direct message friends or group chat with your circle
+                  Message friends or group chat with your circle
                 </p>
               </div>
             </div>
 
             <button
               onClick={onClose}
-              className={`p-2 rounded-full transition-colors cursor-pointer ${
+              className={`p-1.5 rounded-full transition-colors cursor-pointer active:scale-90 ${
                 isDarkMode
-                  ? 'text-neutral-400 hover:text-white hover:bg-neutral-800'
-                  : 'text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100'
+                  ? 'text-neutral-400 hover:text-white hover:bg-white/10'
+                  : 'text-neutral-500 hover:text-neutral-900 hover:bg-black/5'
               }`}
               aria-label="Close"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Tab Navigation */}
-          <div
-            className={`px-4 py-2 border-b flex items-center gap-1.5 shrink-0 overflow-x-auto scrollbar-none ${
-              isDarkMode ? 'border-neutral-800/80 bg-neutral-900/30' : 'border-neutral-100 bg-neutral-50/30'
-            }`}
-          >
+          <div className={`px-4 py-2 border-b flex items-center gap-1.5 shrink-0 overflow-x-auto scrollbar-none ${
+            isDarkMode ? 'border-white/10 bg-white/[0.01]' : 'border-black/5 bg-neutral-50/70'
+          }`}>
             {/* My Friends Tab */}
             <button
               type="button"
@@ -307,7 +316,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                         No friends added yet
                       </p>
                       <p className="text-xs text-neutral-400 max-w-xs mb-4">
-                        Add friends to direct message them anytime with full persistent conversation history!
+                        Add friends to chat anytime with full persistent conversation history!
                       </p>
                       <button
                         type="button"
@@ -339,7 +348,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                               ? 'bg-neutral-900/60 border-neutral-800 hover:bg-neutral-850 hover:border-neutral-700'
                               : 'bg-neutral-50/70 border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300'
                           }`}
-                          title={`Click to direct message ${friend.friendName}`}
+                          title={`Click to chat with ${friend.friendName}`}
                         >
                           {/* Avatar + Info */}
                           <div className="flex items-center gap-3 min-w-0">
@@ -359,7 +368,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                                     isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'
                                   }`}
                                 />
-                                <span>{isOnline ? 'Active now • Click to chat' : 'Offline • Direct message'}</span>
+                                <span>{isOnline ? 'Active now • Click to chat' : 'Offline • Click to chat'}</span>
                               </span>
                             </div>
                           </div>
@@ -374,8 +383,8 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                               }}
                               className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs active:scale-95"
                             >
-                              <Lock className="w-3.5 h-3.5 stroke-[2.2]" />
-                              <span>Direct Chat</span>
+                              <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
+                              <span>Chat</span>
                             </button>
 
                             <button
@@ -495,8 +504,8 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                               }}
                               className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs active:scale-95"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 stroke-[2.2]" />
-                              <span>Open Chat</span>
+                              <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
+                              <span>Chat</span>
                             </button>
 
                             <button
@@ -570,7 +579,15 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => onAcceptRequest(req)}
+                                onClick={() => {
+                                  onAcceptRequest(req);
+                                  onShowFriendPopup?.({
+                                    type: 'accepted',
+                                    targetSessionId: req.fromSessionId,
+                                    targetUserName: req.fromUserName,
+                                    targetAvatarId: req.fromAvatarId,
+                                  });
+                                }}
                                 className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
                               >
                                 <Check className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -682,8 +699,16 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                                 onClick={async () => {
                                   const res = await onSendRequest(user.sessionId, user.userName, user.avatar.id);
                                   setAddFeedback({ message: res.message, isError: !res.success });
+                                  if (res.success) {
+                                    onShowFriendPopup?.({
+                                      type: 'sent',
+                                      targetSessionId: user.sessionId,
+                                      targetUserName: user.userName,
+                                      targetAvatarId: user.avatar.id,
+                                    });
+                                  }
                                 }}
-                                className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                                className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs active:scale-95"
                               >
                                 <UserPlus className="w-3.5 h-3.5" />
                                 <span>Add Friend</span>

@@ -2,9 +2,10 @@
 
 @layer base {
   :root {
-    --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Helvetica Neue", "Plus Jakarta Sans", sans-serif;
-    --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", -apple-system-subheadline, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Monaco, monospace;
+    color-scheme: dark;
   }
 
   * {
@@ -12,54 +13,63 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  html {
+    background-color: #000000;
+    color-scheme: dark;
+  }
+
   body {
     font-family: var(--font-apple);
-    background-color: #0d0f14;
-    color: #1c1c1e;
+    background-color: #000000;
+    color: #f5f5f7;
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    letter-spacing: -0.011em;
+    letter-spacing: -0.015em;
+    overflow-x: hidden;
   }
 }
 
-/* Apple Fluid Glass & Spring Effects */
+/* Apple Materials & Vibrancy Effects */
 .apple-glass {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.06);
-}
-
-.apple-glass-dark {
-  background: rgba(20, 21, 24, 0.75);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(28, 28, 30, 0.8);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35);
+  box-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.5);
 }
 
-/* Apple Button Spring Press Feedback */
+.apple-glass-header {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.apple-glass-input {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Apple Spring Press Feedback */
 .apple-spring-press {
   transition: transform 120ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 120ms ease;
 }
 .apple-spring-press:active {
   transform: scale(0.96);
-  opacity: 0.9;
+  opacity: 0.88;
 }
 
-/* Apple Smooth Squircle Card Depth */
+/* Apple Card Shadows */
 .apple-card-shadow {
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
-}
-.apple-card-shadow-dark {
-  box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: 0 24px 60px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-/* Authentic Apple iMessage typing wave animation */
+/* Apple-style typing wave animation */
 @keyframes typing-dot-bounce {
   0%, 60%, 100% {
     transform: translateY(0);
@@ -108,10 +118,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(140, 140, 145, 0.25);
+  background: rgba(255, 255, 255, 0.16);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(140, 140, 145, 0.45);
+  background: rgba(255, 255, 255, 0.3);
 }

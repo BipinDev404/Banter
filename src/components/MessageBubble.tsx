@@ -280,28 +280,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             isSelf ? 'right-2' : 'left-10'
           } ${
             isDarkMode
-              ? 'bg-[#1C1D22]/95 border-white/15 text-white backdrop-blur-2xl'
-              : 'bg-white/95 border-black/10 text-neutral-900 backdrop-blur-2xl'
-          }`}
+              ? 'bg-[#1C1D22]/95 border-white/15 text-white'
+              : 'bg-white/95 border-black/10 text-neutral-900 shadow-xl'
+          } backdrop-blur-2xl`}
         >
           {TAPBACK_REACTIONS.map((t) => (
             <button
               key={t.id}
               onClick={() => handleSelectReaction(t.id)}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:scale-125 transition-transform active:scale-90 cursor-pointer hover:bg-black/5 dark:hover:bg-white/10"
+              className={`w-8 h-8 rounded-full flex items-center justify-center hover:scale-125 transition-transform active:scale-90 cursor-pointer ${
+                isDarkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
+              }`}
               title={t.name}
             >
               {renderReactionIcon(t.id, 'w-4 h-4')}
             </button>
           ))}
 
-          <div className="w-px h-5 bg-neutral-300 dark:bg-neutral-700 mx-0.5" />
+          <div className={`w-px h-5 mx-0.5 ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
           <button
             onClick={() => {
               onReplyTo(safeUserName, getMessageSnippet(message));
               closePicker();
             }}
-            className="px-2.5 py-1 rounded-full text-xs font-semibold text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center gap-1 cursor-pointer transition-colors"
+            className="px-2.5 py-1 rounded-full text-xs font-semibold text-[#007AFF] hover:bg-blue-500/10 flex items-center gap-1 cursor-pointer transition-colors"
             title="Inline Reply"
           >
             <Reply className="w-3.5 h-3.5 stroke-[2.5]" />
@@ -365,11 +367,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     e.stopPropagation();
                     togglePicker();
                   }}
-                  className={`px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 ${
-                    isDarkMode
-                      ? 'bg-[#1C1D22] border-white/10 text-neutral-100'
-                      : 'bg-white border-black/10 text-neutral-800'
-                  }`}
+                  className="px-2 py-0.5 rounded-full border border-white/10 shadow-sm flex items-center gap-1.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 bg-[#1C1D22] text-neutral-100"
                 >
                   {message.reactions!.map((reactionKey, idx) => (
                     <span key={idx} className="flex items-center">
@@ -378,8 +376,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   ))}
                 </div>
                 <div className="flex flex-col items-center -ml-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
-                  <span className={`w-1 h-1 rounded-full mt-0.5 ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-neutral-700" />
+                  <span className="w-1.5 h-1.5 rounded-full mt-0.5 bg-neutral-700" />
                 </div>
               </div>
             )}
@@ -507,17 +505,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {/* Reaction badges with Apple Pill Design */}
               {hasReactions && (
-                <div className="relative -mb-3 z-10 ml-3 flex items-center gap-0.5">
+                <div className="relative -mb-3 z-10 mr-3 flex items-center gap-0.5">
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
                       togglePicker();
                     }}
-                    className={`px-2 py-0.5 rounded-full border shadow-sm flex items-center gap-1.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 ${
-                      isDarkMode
-                        ? 'bg-[#1C1D22] border-white/10 text-neutral-100'
-                        : 'bg-white border-black/10 text-neutral-800'
-                    }`}
+                    className="px-2 py-0.5 rounded-full border border-white/10 shadow-sm flex items-center gap-1.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 bg-[#1C1D22] text-neutral-100"
                   >
                     {message.reactions!.map((reactionKey, idx) => (
                       <span key={idx} className="flex items-center">
@@ -526,8 +520,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     ))}
                   </div>
                   <div className="flex flex-col items-center -ml-1">
-                    <span className={`w-1.5 h-1.5 rounded-full ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
-                    <span className={`w-1 h-1 rounded-full mt-0.5 ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
+                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-700" />
+                    <span className="w-1 h-1 rounded-full mt-0.5 bg-neutral-700" />
                   </div>
                 </div>
               )}
@@ -557,7 +551,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 }}
                 className={`rounded-[20px] rounded-tl-[4px] p-3 shadow-xs relative cursor-pointer active:opacity-95 flex flex-col gap-1.5 select-none [webkit-touch-callout:none] border-[0.5px] ${
                   isDarkMode
-                    ? 'bg-[#26252A] text-neutral-100 border-white/10'
+                    ? 'bg-[#242426] text-neutral-100 border-white/10'
                     : 'bg-[#E9E9EB] text-neutral-900 border-black/5'
                 }`}
                 title="Hold or double-click for options, drag to reply"

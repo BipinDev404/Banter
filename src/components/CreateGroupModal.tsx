@@ -105,12 +105,13 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-group-title"
-        className={`relative z-10 w-full max-w-md rounded-[32px] border shadow-2xl flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 ${
+        className={`relative z-10 w-full max-w-md rounded-[28px] border shadow-2xl flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 backdrop-blur-2xl ${
           isDarkMode
-            ? 'bg-[#16171B]/95 border-neutral-800 text-white'
-            : 'bg-white/95 border-neutral-200 text-neutral-900'
-        } backdrop-blur-2xl`}
+            ? 'border-white/10 bg-[#1c1c1e] text-white'
+            : 'border-black/10 bg-white text-neutral-900 shadow-xl'
+        }`}
       >
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
         {/* Header */}
         <div
           className={`px-5 py-4 border-b flex items-center justify-between shrink-0 ${

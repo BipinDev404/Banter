@@ -30,7 +30,7 @@ export interface ThemeOption {
 export const THEME_OPTIONS: ThemeOption[] = [
   {
     id: 'blue',
-    name: 'iMessage Blue',
+    name: 'Classic Blue',
     hex: '#007AFF',
     bgClass: 'bg-[#007AFF]',
     hoverClass: 'hover:bg-[#0071E3]',
@@ -158,7 +158,7 @@ export const FONT_OPTIONS: FontOption[] = [
 
 const DEFAULT_SETTINGS: AppSettings = {
   themeAccent: 'blue',
-  chatBgPattern: 'clean',
+  chatBgPattern: 'dark-oled',
   fontStyle: 'apple',
   soundEnabled: true,
   messageDensity: 'comfortable',

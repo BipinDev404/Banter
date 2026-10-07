@@ -71,11 +71,11 @@ export const MessageActionsModal: React.FC<MessageActionsModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`w-full max-w-sm rounded-[32px] p-5 shadow-2xl border transition-all animate-in zoom-in-95 duration-200 ${
+        className={`w-full max-w-sm rounded-[28px] p-5 shadow-2xl border transition-all animate-in zoom-in-95 duration-200 backdrop-blur-2xl relative overflow-hidden ${
           isDarkMode
-            ? 'bg-[#1C1D22]/95 border-white/10 text-white'
-            : 'bg-white/95 border-black/10 text-neutral-900'
-        } backdrop-blur-2xl relative overflow-hidden`}
+            ? 'border-white/10 bg-[#1c1c1e] text-white'
+            : 'border-black/10 bg-white text-neutral-900 shadow-xl'
+        }`}
       >
         {/* Apple subtle top light catching highlight */}
         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 dark:via-white/20 to-transparent pointer-events-none" />

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Lock, UserPlus, UserCheck, Sparkles } from 'lucide-react';
+import { X, MessageSquare, UserPlus, UserCheck, Sparkles } from 'lucide-react';
 import { AvatarProfile } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
 
@@ -27,9 +27,8 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
   onRequestPrivateChat,
   isFriend,
   onSendFriendRequest,
-  isDarkMode = false,
+  isDarkMode = true,
 }) => {
-  // Close on Escape key press
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -42,30 +41,32 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md select-none animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md select-none animate-in fade-in duration-150">
       <div className="absolute inset-0" onClick={onClose} />
 
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="online-users-title"
-        className={`relative z-10 w-full max-w-sm rounded-[32px] border shadow-2xl p-5 overflow-hidden animate-in zoom-in-95 duration-150 transition-all ${
+        className={`relative z-10 w-full max-w-sm rounded-[28px] border shadow-2xl p-5 overflow-hidden animate-in zoom-in-95 duration-150 transition-all backdrop-blur-2xl ${
           isDarkMode
-            ? 'bg-[#18191D]/95 border-white/10 text-white'
-            : 'bg-white/95 border-black/10 text-neutral-900'
-        } backdrop-blur-2xl`}
+            ? 'border-white/10 bg-[#1c1c1e] text-white'
+            : 'border-black/10 bg-white text-neutral-900 shadow-xl'
+        }`}
       >
         {/* Apple subtle top light catching highlight */}
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/50 dark:via-white/20 to-transparent pointer-events-none" />
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-black/5 dark:border-white/10 mb-3">
+        <div className={`flex items-center justify-between pb-3 border-b mb-3 ${
+          isDarkMode ? 'border-white/10' : 'border-black/5'
+        }`}>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <h2 id="online-users-title" className="text-base font-bold tracking-tight">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h2 id="online-users-title" className={`text-base font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
               Online Now
             </h2>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-500 dark:text-emerald-300">
               {users.length}
             </span>
           </div>
@@ -75,7 +76,7 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
             className={`p-1.5 rounded-full transition-colors cursor-pointer active:scale-90 ${
               isDarkMode
                 ? 'text-neutral-400 hover:text-white hover:bg-white/10'
-                : 'text-neutral-500 hover:text-black hover:bg-black/5'
+                : 'text-neutral-500 hover:text-neutral-900 hover:bg-black/5'
             }`}
             aria-label="Close dialog"
           >
@@ -96,11 +97,11 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
                 className={`flex items-center justify-between p-2.5 rounded-2xl transition-all border ${
                   user.isSelf
                     ? isDarkMode
-                      ? 'bg-neutral-800/70 border-white/10'
-                      : 'bg-blue-50/70 border-blue-100/80 shadow-2xs'
+                      ? 'bg-[#2c2c2e] border-white/10'
+                      : 'bg-neutral-100 border-black/5'
                     : isDarkMode
                     ? 'bg-white/5 border-transparent hover:bg-white/10'
-                    : 'bg-black/2 border-transparent hover:bg-black/5'
+                    : 'bg-neutral-50 border-black/5 hover:bg-neutral-100'
                 }`}
               >
                 {/* Left: Avatar + Name */}
@@ -108,7 +109,7 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
                   <UserAvatar avatar={user.avatar} size="sm" isOnline={true} showOnlineBadge={true} />
                   <div className="flex flex-col min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold truncate text-neutral-900 dark:text-neutral-100">
+                      <span className={`text-xs font-semibold truncate ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
                         {user.userName}
                       </span>
                       {user.isSelf && (
@@ -125,11 +126,11 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
 
                 {/* Right: Actions */}
                 {user.isSelf ? (
-                  <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0 mr-1" />
+                  <Sparkles className="w-3.5 h-3.5 text-blue-400 shrink-0 mr-1" />
                 ) : (
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     {isFriend?.(user.sessionId) ? (
-                      <span className="text-[11px] font-semibold text-emerald-500 flex items-center gap-1 px-2 py-1 rounded-xl bg-emerald-500/10">
+                      <span className="text-[11px] font-semibold text-emerald-500 dark:text-emerald-400 flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-500/15">
                         <UserCheck className="w-3 h-3 stroke-[2.5]" />
                         <span className="hidden sm:inline">Friend</span>
                       </span>
@@ -138,38 +139,35 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
                         <button
                           type="button"
                           onClick={() => onSendFriendRequest(user.sessionId, user.userName, user.avatar.id)}
-                          className="p-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 active:scale-90 transition-all cursor-pointer"
-                          title={`Add ${user.userName} as friend`}
+                          className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold active:scale-95 transition-all flex items-center gap-1 cursor-pointer ${
+                            isDarkMode
+                              ? 'bg-white/10 hover:bg-white/15 text-neutral-200'
+                              : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-800'
+                          }`}
+                          title="Send friend request"
                         >
-                          <UserPlus className="w-3.5 h-3.5 stroke-[2.2]" />
+                          <UserPlus className="w-3 h-3 stroke-[2]" />
+                          <span>Add</span>
                         </button>
                       )
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onRequestPrivateChat?.(user.sessionId, user.userName);
-                        onClose();
-                      }}
-                      className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] active:scale-95 text-white text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                      title={`Direct message ${user.userName}`}
-                    >
-                      <Lock className="w-3 h-3 stroke-[2.2]" />
-                      <span>Message</span>
-                    </button>
+                    {onRequestPrivateChat && (
+                      <button
+                        type="button"
+                        onClick={() => onRequestPrivateChat(user.sessionId, user.userName)}
+                        className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-[#007AFF] hover:bg-[#0071E3] text-white active:scale-95 transition-all flex items-center gap-1 cursor-pointer shadow-xs"
+                        title="Start conversation"
+                      >
+                        <MessageSquare className="w-3 h-3 stroke-[2.2]" />
+                        <span>Chat</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             ))
           )}
-        </div>
-
-        {/* Footer info note */}
-        <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/10 text-center">
-          <p className="text-[11px] text-neutral-400 font-medium">
-            Active participants in chat room
-          </p>
         </div>
       </div>
     </div>

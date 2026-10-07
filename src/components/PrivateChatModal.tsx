@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChatMessage, ChatAttachment, PrivateChatRoom } from '../types';
 import { getAvatarForUser } from '../lib/avatars';
-import { X, Lock, Plus, ArrowUp, Loader2, LogOut, Shield } from 'lucide-react';
+import { X, MessageSquare, Plus, ArrowUp, Loader2, LogOut, Shield } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import { processImageAttachment, processFileAttachment, formatFileSize } from '../lib/attachments';
 import { UserAvatar } from './UserAvatar';
@@ -145,8 +145,8 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
                   {room.partnerName}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 flex items-center gap-1 border border-blue-500/20">
-                  <Lock className="w-3 h-3 stroke-[2.5]" />
-                  <span>Direct Message</span>
+                  <MessageSquare className="w-3 h-3 stroke-[2.5]" />
+                  <span>Chat</span>
                 </span>
               </div>
               <span className="text-[11px] text-neutral-400 flex items-center gap-1">
@@ -175,10 +175,10 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-neutral-400">
               <div className="w-14 h-14 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-3">
-                <Lock className="w-7 h-7 stroke-[2]" />
+                <MessageSquare className="w-7 h-7 stroke-[2]" />
               </div>
               <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
-                Direct Chat Connected
+                Chat Connected
               </p>
               <p className="text-xs text-neutral-400 max-w-xs">
                 Messages sent here are visible only to you and {room.partnerName}.

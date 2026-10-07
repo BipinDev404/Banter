@@ -34,18 +34,17 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
         role="dialog"
         aria-modal="true"
         aria-labelledby="group-info-title"
-        className={`relative z-10 w-full max-w-sm rounded-[32px] border shadow-2xl flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 ${
+        className={`relative z-10 w-full max-w-sm rounded-[28px] border shadow-2xl flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 backdrop-blur-2xl ${
           isDarkMode
-            ? 'bg-[#16171B]/95 border-neutral-800 text-white'
-            : 'bg-white/95 border-neutral-200 text-neutral-900'
-        } backdrop-blur-2xl`}
+            ? 'border-white/10 bg-[#1c1c1e] text-white'
+            : 'border-black/10 bg-white text-neutral-900 shadow-xl'
+        }`}
       >
+        {/* Apple subtle top light catching highlight */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+
         {/* Header */}
-        <div
-          className={`px-5 py-4 border-b flex items-center justify-between shrink-0 ${
-            isDarkMode ? 'border-neutral-800/80 bg-neutral-900/50' : 'border-neutral-100 bg-neutral-50/50'
-          }`}
-        >
+        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between shrink-0 bg-white/[0.02]">
           <div className="flex items-center gap-2.5">
             <UserAvatar avatar={groupAvatar} size="sm" />
             <div>

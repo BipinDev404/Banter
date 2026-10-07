@@ -1,6 +1,6 @@
 {
-  "name": "Banter",
-  "description": "Talk. Laugh. Banter. Real-time anonymous global chat.",
+  "name": "Bongs",
+  "description": "Bongs — Modern offline-first music player with smart local collections, equalizer, visualizer, audio controls, tag editor, and private listening insights.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

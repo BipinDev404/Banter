@@ -46,7 +46,7 @@ export const TypingIndicator: React.FC<TypingIndicatorProps> = ({
         {/* Real Vector Icon Avatar */}
         <UserAvatar avatar={avatar} size="sm" />
 
-        {/* Authentic Apple iMessage Typing Bubble with animated wave dots */}
+        {/* Apple-style typing bubble with animated wave dots */}
         <div
           className={`rounded-[18px] rounded-bl-[4px] px-3.5 py-2.5 shadow-xs flex items-center gap-1.5 transition-colors ${
             isDarkMode

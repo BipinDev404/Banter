@@ -1,6 +1,6 @@
 import React from 'react';
 import { PrivateChatRequest } from '../types';
-import { Lock, Check } from 'lucide-react';
+import { MessageSquare, Check } from 'lucide-react';
 import { getAvatarForUser } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
 
@@ -17,7 +17,7 @@ export const PrivateChatConfirmationModal: React.FC<PrivateChatConfirmationModal
   request,
   onAccept,
   onDecline,
-  isDarkMode = false,
+  isDarkMode = true,
 }) => {
   if (!isOpen || !request) return null;
 
@@ -31,32 +31,36 @@ export const PrivateChatConfirmationModal: React.FC<PrivateChatConfirmationModal
         aria-labelledby="private-req-title"
         className={`relative z-10 w-full max-w-sm rounded-[28px] border shadow-2xl p-6 overflow-hidden animate-in zoom-in-95 duration-150 transition-colors ${
           isDarkMode
-            ? 'bg-[#18191D]/95 border-neutral-800 text-white'
-            : 'bg-white/95 border-neutral-200 text-neutral-900'
-        } backdrop-blur-xl`}
+            ? 'bg-[#1c1c1e] border-white/10 text-white'
+            : 'bg-white border-black/10 text-neutral-900'
+        } backdrop-blur-2xl`}
       >
+        {/* Apple subtle top light catching highlight */}
+        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
         {/* Top Icon Badge */}
         <div className="flex justify-center mb-4">
-          <div className="w-14 h-14 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center shadow-xs border border-blue-500/20">
-            <Lock className="w-7 h-7 stroke-[2.2]" />
+          <div className="w-14 h-14 rounded-2xl bg-blue-500/10 text-[#007AFF] flex items-center justify-center shadow-xs border border-blue-500/20">
+            <MessageSquare className="w-7 h-7 stroke-[2.2]" />
           </div>
         </div>
 
         {/* Modal Title */}
         <h3 id="private-req-title" className="text-lg font-bold text-center tracking-tight mb-1">
-          Direct Chat Request
+          Chat Request
         </h3>
 
         {/* Request Details */}
         <div className="text-center mb-5">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 dark:bg-neutral-800/80 border border-neutral-200/80 dark:border-neutral-700/80 my-2">
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border my-2 ${
+            isDarkMode ? 'bg-[#2c2c2e] border-white/10 text-white' : 'bg-neutral-100 border-black/5 text-neutral-900'
+          }`}>
             <UserAvatar avatar={avatar} size="xs" />
-            <span className="text-xs font-bold text-neutral-900 dark:text-neutral-100">
+            <span className="text-xs font-bold">
               {request.fromUserName}
             </span>
           </div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed max-w-xs mx-auto mt-1">
-            wants to start a direct 1-on-1 real-time conversation with you.
+          <p className="text-xs text-neutral-400 leading-relaxed max-w-xs mx-auto mt-1">
+            wants to start a conversation with you.
           </p>
         </div>
 
