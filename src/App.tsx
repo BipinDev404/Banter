@@ -11,7 +11,7 @@ import {
   clearLocalData,
   testConnection,
   db,
-} from './lib/firebase';
+} from '@/lib/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import {
   usePresence,
@@ -20,7 +20,7 @@ import {
   usePrivateChat,
   useFriends,
   useGroups,
-} from './hooks';
+} from '@/hooks';
 import {
   WelcomeScreen,
   ChatHeader,
@@ -34,11 +34,11 @@ import {
   MessageActionsModal,
   PrivateChatConfirmationModal,
   FriendAlertModal,
-} from './components';
-import { FriendAlertData } from './components/FriendAlertModal';
-import { ChatMessage, GroupItem } from './types';
-import { playMessagePopSound } from './lib/sound';
-import { AppSettings, loadSavedSettings, saveSettings, getFontOption } from './lib/settings';
+} from '@/components';
+import { FriendAlertData } from '@/components/FriendAlertModal';
+import { ChatMessage, GroupItem } from '@/types';
+import { playMessagePopSound } from '@/lib/sound';
+import { AppSettings, loadSavedSettings, saveSettings, getFontOption } from '@/lib/settings';
 
 export default function App() {
   const [userName, setUserName] = useState<string>(() => getSavedUserName());
