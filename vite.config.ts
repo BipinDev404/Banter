@@ -11,8 +11,11 @@ export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     resolve: {
+      extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'],
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'src'),
+        '~': path.resolve(__dirname, 'src'),
+        './hooks/usePrivateChat': path.resolve(__dirname, 'src/hooks/usePrivateChat.ts'),
       },
     },
     server: {
