@@ -13,24 +13,29 @@ import {
   db,
 } from './lib/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { usePresence } from './hooks/usePresence';
-import { useMessages } from './hooks/useMessages';
-import { useTyping } from './hooks/useTyping';
-import { usePrivateChat } from './hooks/usePrivateChat';
-import { useFriends } from './hooks/useFriends';
-import { useGroups } from './hooks/useGroups';
-import { WelcomeScreen } from './components/WelcomeScreen';
-import { ChatHeader } from './components/ChatHeader';
-import { MessageList } from './components/MessageList';
-import { MessageInput } from './components/MessageInput';
-import { SettingsModal } from './components/SettingsModal';
-import { OnlineUsersModal } from './components/OnlineUsersModal';
-import { FriendsModal } from './components/FriendsModal';
-import { GroupInfoModal } from './components/GroupInfoModal';
-import { LightboxModal } from './components/LightboxModal';
-import { MessageActionsModal } from './components/MessageActionsModal';
-import { PrivateChatConfirmationModal } from './components/PrivateChatConfirmationModal';
-import { FriendAlertModal, FriendAlertData } from './components/FriendAlertModal';
+import {
+  usePresence,
+  useMessages,
+  useTyping,
+  usePrivateChat,
+  useFriends,
+  useGroups,
+} from './hooks';
+import {
+  WelcomeScreen,
+  ChatHeader,
+  MessageList,
+  MessageInput,
+  SettingsModal,
+  OnlineUsersModal,
+  FriendsModal,
+  GroupInfoModal,
+  LightboxModal,
+  MessageActionsModal,
+  PrivateChatConfirmationModal,
+  FriendAlertModal,
+} from './components';
+import { FriendAlertData } from './components/FriendAlertModal';
 import { ChatMessage, GroupItem } from './types';
 import { playMessagePopSound } from './lib/sound';
 import { AppSettings, loadSavedSettings, saveSettings, getFontOption } from './lib/settings';
