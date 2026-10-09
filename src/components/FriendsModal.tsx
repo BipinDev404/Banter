@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   Users,
@@ -46,7 +47,7 @@ interface FriendsModalProps {
   onShowFriendPopup?: (data: FriendAlertData) => void;
 }
 
-type FriendsTab = 'friends' | 'groups' | 'requests' | 'add';
+type FriendsTab = 'friends' | 'groups' | 'requests';
 
 export const FriendsModal: React.FC<FriendsModalProps> = ({
   isOpen,
@@ -132,20 +133,32 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150 select-none">
-        {/* Backdrop */}
-        <div className="absolute inset-0" onClick={onClose} />
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md select-none"
+          >
+            {/* Backdrop */}
+            <div className="absolute inset-0" onClick={onClose} />
 
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="friends-title"
-          className={`relative z-10 w-full max-w-lg h-[88vh] sm:h-[620px] rounded-[28px] border shadow-2xl flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 backdrop-blur-2xl ${
-            isDarkMode
-              ? 'border-white/10 bg-[#1c1c1e] text-white'
-              : 'border-black/10 bg-white text-neutral-900 shadow-xl'
-          }`}
-        >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="friends-title"
+              initial={{ opacity: 0, scale: 0.94, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 10 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 360 }}
+              className={`relative z-10 w-full max-w-lg h-[88vh] sm:h-[620px] rounded-[28px] border shadow-2xl flex flex-col overflow-hidden transition-colors backdrop-blur-2xl ${
+                isDarkMode
+                  ? 'border-white/10 bg-[#1c1c1e] text-white'
+                  : 'border-black/10 bg-white text-neutral-900 shadow-xl'
+              }`}
+            >
           {/* Apple subtle top light catching highlight */}
           <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
@@ -235,7 +248,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
               </span>
             </button>
 
-            {/* Requests Tab */}
+            {/* Requests & Add Friend Tab */}
             <button
               type="button"
               onClick={() => setActiveTab('requests')}
@@ -247,8 +260,8 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                   : 'text-neutral-600 hover:bg-neutral-200/60'
               }`}
             >
-              <Clock className="w-3.5 h-3.5" />
-              <span>Requests</span>
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Requests & Add</span>
               {incomingRequests.length > 0 && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               )}
@@ -263,22 +276,6 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
               >
                 {incomingRequests.length}
               </span>
-            </button>
-
-            {/* Add Friend Tab */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('add')}
-              className={`px-3 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
-                activeTab === 'add'
-                  ? 'bg-[#007AFF] text-white shadow-xs'
-                  : isDarkMode
-                  ? 'text-neutral-400 hover:bg-neutral-800'
-                  : 'text-neutral-600 hover:bg-neutral-200/60'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>Add Friend</span>
             </button>
           </div>
 
@@ -320,7 +317,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                       </p>
                       <button
                         type="button"
-                        onClick={() => setActiveTab('add')}
+                        onClick={() => setActiveTab('requests')}
                         className="px-4 py-2 rounded-2xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                       >
                         <UserPlus className="w-3.5 h-3.5" />
@@ -529,22 +526,50 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
               </div>
             )}
 
-            {/* 3. Requests Tab */}
+            {/* 3. Requests & Add Friend Tab (Unified Section) */}
             {activeTab === 'requests' && (
-              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-                {/* Incoming Requests */}
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block mb-2">
-                    Incoming Requests ({incomingRequests.length})
-                  </span>
+              <div className="flex-1 overflow-y-auto space-y-5 pr-1">
+                {/* Feedback Toast Banner */}
+                {addFeedback && (
+                  <div
+                    className={`p-3 rounded-2xl text-xs flex items-center justify-between border animate-in fade-in ${
+                      addFeedback.isError
+                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    <span>{addFeedback.message}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAddFeedback(null)}
+                      className="p-1 text-neutral-400 hover:text-black dark:hover:text-white"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
 
+                {/* Section A: Friend Requests (Incoming & Sent) */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                      Pending Requests
+                    </span>
+                    {(incomingRequests.length > 0 || sentRequests.length > 0) && (
+                      <span className="text-[11px] font-semibold text-blue-500">
+                        {incomingRequests.length} incoming • {sentRequests.length} sent
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Incoming Requests */}
                   {incomingRequests.length === 0 ? (
                     <div
-                      className={`p-4 rounded-2xl border text-center text-xs text-neutral-400 ${
+                      className={`p-3.5 rounded-2xl border text-center text-xs text-neutral-400 ${
                         isDarkMode ? 'border-neutral-800 bg-neutral-900/40' : 'border-neutral-200 bg-neutral-50/50'
                       }`}
                     >
-                      No pending incoming requests
+                      No incoming friend requests
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -553,7 +578,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                         return (
                           <div
                             key={req.id}
-                            className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                            className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${
                               isDarkMode ? 'bg-neutral-900/80 border-neutral-800' : 'bg-neutral-50 border-neutral-200'
                             }`}
                           >
@@ -599,19 +624,17 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                       })}
                     </div>
                   )}
-                </div>
 
-                {/* Sent Requests */}
-                {sentRequests.length > 0 && (
-                  <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800">
-                    <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block mb-2">
-                      Sent Requests ({sentRequests.length})
-                    </span>
-                    <div className="space-y-2">
+                  {/* Sent Requests */}
+                  {sentRequests.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <span className="text-[11px] font-semibold text-neutral-400 block">
+                        Sent Requests ({sentRequests.length})
+                      </span>
                       {sentRequests.map((req) => (
                         <div
                           key={req.id}
-                          className={`p-3 rounded-2xl border flex items-center justify-between text-xs ${
+                          className={`p-2.5 rounded-2xl border flex items-center justify-between text-xs ${
                             isDarkMode ? 'border-neutral-800 bg-neutral-900/30' : 'border-neutral-200 bg-neutral-50/40'
                           }`}
                         >
@@ -625,65 +648,45 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
 
-            {/* 4. Add Friend Tab */}
-            {activeTab === 'add' && (
-              <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-                {addFeedback && (
-                  <div
-                    className={`p-3 rounded-2xl text-xs flex items-center justify-between border animate-in fade-in ${
-                      addFeedback.isError
-                        ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
-                        : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                    }`}
-                  >
-                    <span>{addFeedback.message}</span>
-                    <button
-                      type="button"
-                      onClick={() => setAddFeedback(null)}
-                      className="p-1 text-neutral-400 hover:text-black dark:hover:text-white"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+                {/* Divider */}
+                <div className="border-t border-neutral-200 dark:border-neutral-800 my-2" />
 
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block mb-2">
-                    Active Users in Chat Room ({nonFriendOnlineUsers.length})
+                {/* Section B: Find & Add Friends */}
+                <div className="space-y-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block">
+                    Active Users in Room ({nonFriendOnlineUsers.length})
                   </span>
 
                   {nonFriendOnlineUsers.length === 0 ? (
                     <div
-                      className={`p-5 rounded-2xl border text-center text-xs text-neutral-400 ${
+                      className={`p-4 rounded-2xl border text-center text-xs text-neutral-400 ${
                         isDarkMode ? 'border-neutral-800 bg-neutral-900/40' : 'border-neutral-200 bg-neutral-50/50'
                       }`}
                     >
                       All online users in the room are already in your friends list!
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                       {nonFriendOnlineUsers.map((user) => {
                         const isAlreadySent = sentRequests.some((r) => r.toSessionId === user.sessionId);
 
                         return (
                           <div
                             key={user.sessionId}
-                            className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${
+                            className={`p-2.5 rounded-2xl border flex items-center justify-between gap-3 ${
                               isDarkMode ? 'bg-neutral-900/80 border-neutral-800' : 'bg-neutral-50 border-neutral-200'
                             }`}
                           >
-                            <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex items-center gap-2.5 min-w-0">
                               <UserAvatar avatar={user.avatar} size="sm" isOnline={true} showOnlineBadge={true} />
                               <div className="flex flex-col min-w-0">
                                 <span className="text-sm font-semibold truncate text-neutral-900 dark:text-neutral-100">
                                   {user.userName}
                                 </span>
-                                <span className="text-[11px] text-emerald-500 font-medium">
+                                <span className="text-[10px] text-emerald-500 font-medium">
                                   Active now
                                 </span>
                               </div>
@@ -719,38 +722,41 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                       })}
                     </div>
                   )}
-                </div>
 
-                <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
-                    Add By Exact Username
-                  </label>
-                  <form onSubmit={handleManualAddSubmit} className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={usernameInput}
-                      onChange={(e) => setUsernameInput(e.target.value)}
-                      placeholder="Enter username..."
-                      className={`flex-1 px-3.5 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
-                        isDarkMode
-                          ? 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
-                          : 'bg-neutral-50 border-neutral-200 text-neutral-900 placeholder-neutral-400'
-                      }`}
-                    />
-                    <button
-                      type="submit"
-                      disabled={!usernameInput.trim()}
-                      className="px-3.5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold disabled:opacity-50 cursor-pointer shadow-xs"
-                    >
-                      Send Request
-                    </button>
-                  </form>
+                  {/* Add By Exact Username Form */}
+                  <div className="pt-2">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-neutral-400 mb-2">
+                      Add By Exact Username
+                    </label>
+                    <form onSubmit={handleManualAddSubmit} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={usernameInput}
+                        onChange={(e) => setUsernameInput(e.target.value)}
+                        placeholder="Enter username..."
+                        className={`flex-1 px-3.5 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
+                          isDarkMode
+                            ? 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
+                            : 'bg-neutral-50 border-neutral-200 text-neutral-900 placeholder-neutral-400'
+                        }`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!usernameInput.trim()}
+                        className="px-3.5 py-2 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold disabled:opacity-50 cursor-pointer shadow-xs"
+                      >
+                        Send Request
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>
 
       {/* Create Group Modal */}
       <CreateGroupModal

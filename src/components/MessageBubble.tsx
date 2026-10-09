@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '../types';
 import { getAvatarForUser, TAPBACK_REACTIONS, renderReactionIcon } from '../lib/avatars';
-import { Reply, FileText, Download, Maximize2, Smile } from 'lucide-react';
+import { Reply, FileText, Download, Maximize2, Smile, Mic } from 'lucide-react';
 import { formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
 import { UserAvatar } from './UserAvatar';
@@ -273,44 +274,53 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   return (
     <div className={`flex flex-col relative group my-2 sm:my-3 select-none no-native-callout ${isSelf ? 'items-end' : 'items-start'}`}>
       {/* Floating Apple Tapback Reaction Pill with Vector Icons */}
-      {showTapbackPicker && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className={`absolute -top-13 z-30 flex items-center gap-1.5 p-1.5 rounded-full shadow-2xl border animate-in zoom-in-75 slide-in-from-bottom-2 duration-200 ease-out origin-bottom ${
-            isSelf ? 'right-2' : 'left-10'
-          } ${
-            isDarkMode
-              ? 'bg-[#1C1D22]/95 border-white/15 text-white'
-              : 'bg-white/95 border-black/10 text-neutral-900 shadow-xl'
-          } backdrop-blur-2xl`}
-        >
-          {TAPBACK_REACTIONS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => handleSelectReaction(t.id)}
-              className={`w-9 h-9 rounded-full flex items-center justify-center hover:scale-125 transition-transform active:scale-90 cursor-pointer ${
-                isDarkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
-              }`}
-              title={t.name}
-            >
-              {renderReactionIcon(t.id, 'text-lg')}
-            </button>
-          ))}
-
-          <div className={`w-px h-5 mx-0.5 ${isDarkMode ? 'bg-neutral-700' : 'bg-neutral-300'}`} />
-          <button
-            onClick={() => {
-              onReplyTo(safeUserName, getMessageSnippet(message));
-              closePicker();
-            }}
-            className="px-2.5 py-1 rounded-full text-xs font-semibold text-[#007AFF] hover:bg-blue-500/10 flex items-center gap-1 cursor-pointer transition-colors"
-            title="Inline Reply"
+      <AnimatePresence>
+        {showTapbackPicker && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.75, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.75, y: 12 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 420 }}
+            onClick={(e) => e.stopPropagation()}
+            className={`absolute -top-14 z-30 flex items-center gap-1 p-1.5 rounded-full border shadow-[0_12px_32px_rgba(0,0,0,0.32)] origin-bottom ${
+              isSelf ? 'right-2' : 'left-10'
+            } ${
+              isDarkMode
+                ? 'bg-[#1C1D22]/95 border-white/15 text-white shadow-black/70'
+                : 'bg-white/95 border-black/10 text-neutral-900 shadow-neutral-400/30'
+            } backdrop-blur-2xl`}
           >
-            <Reply className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Reply</span>
-          </button>
-        </div>
-      )}
+            {TAPBACK_REACTIONS.map((t) => (
+              <motion.button
+                key={t.id}
+                whileHover={{ scale: 1.35, y: -3 }}
+                whileTap={{ scale: 0.88 }}
+                transition={{ type: 'spring', damping: 16, stiffness: 400 }}
+                onClick={() => handleSelectReaction(t.id)}
+                className={`w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors ${
+                  isDarkMode ? 'hover:bg-white/15' : 'hover:bg-black/5'
+                }`}
+                title={t.name}
+              >
+                {renderReactionIcon(t.id, 'text-xl')}
+              </motion.button>
+            ))}
+
+            <div className={`w-px h-5 mx-0.5 ${isDarkMode ? 'bg-neutral-700/80' : 'bg-neutral-300'}`} />
+            <button
+              onClick={() => {
+                onReplyTo(safeUserName, getMessageSnippet(message));
+                closePicker();
+              }}
+              className="px-3 py-1 rounded-full text-xs font-semibold text-[#007AFF] hover:bg-[#007AFF]/10 flex items-center gap-1 cursor-pointer transition-colors"
+              title="Inline Reply"
+            >
+              <Reply className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Reply</span>
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Slide-to-Reply Drag Container */}
       <div
@@ -361,23 +371,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div className="flex flex-col items-end max-w-[85%] sm:max-w-[78%] relative ml-auto">
             {/* Reaction badges with Apple Pill Design */}
             {hasReactions && (
-              <div className="relative -mb-3 z-10 mr-3 flex items-center gap-0.5">
+              <div className="relative -mb-3 z-10 mr-3.5 flex items-center gap-0.5 select-none">
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
                     togglePicker();
                   }}
-                  className="px-2 py-0.5 rounded-full border border-white/10 shadow-sm flex items-center gap-1.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 bg-[#1C1D22] text-neutral-100"
+                  className={`px-2.5 py-0.5 rounded-full border shadow-sm flex items-center gap-1 cursor-pointer select-none transition-all hover:scale-108 active:scale-95 ${
+                    isDarkMode
+                      ? 'bg-[#2c2c2e]/95 border-white/15 text-neutral-100 shadow-black/40'
+                      : 'bg-white/95 border-black/10 text-neutral-900 shadow-neutral-400/20'
+                  } backdrop-blur-md`}
                 >
                   {message.reactions!.map((reactionKey, idx) => (
                     <span key={idx} className="flex items-center">
-                      {renderReactionIcon(reactionKey, 'text-xs')}
+                      {renderReactionIcon(reactionKey, 'text-xs sm:text-sm')}
                     </span>
                   ))}
+                  {message.reactions!.length > 1 && (
+                    <span className="text-[10px] font-bold opacity-75 ml-0.5">
+                      {message.reactions!.length}
+                    </span>
+                  )}
                 </div>
+                {/* Apple Double-Tail Dots */}
                 <div className="flex flex-col items-center -ml-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-neutral-700" />
-                  <span className="w-1.5 h-1.5 rounded-full mt-0.5 bg-neutral-700" />
+                  <span className={`w-1.5 h-1.5 rounded-full border ${isDarkMode ? 'bg-[#2c2c2e] border-white/10' : 'bg-white border-black/10'}`} />
+                  <span className={`w-1 h-1 rounded-full -mt-0.5 border ${isDarkMode ? 'bg-[#2c2c2e] border-white/10' : 'bg-white border-black/10'}`} />
                 </div>
               </div>
             )}
@@ -428,6 +448,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
                         <Maximize2 className="w-5 h-5 drop-shadow-md" />
                       </div>
+                    </div>
+                  ) : attachment.type === 'audio' ? (
+                    <div className="flex flex-col gap-1.5 p-2.5 rounded-2xl bg-white/15 border-[0.5px] border-white/20 text-white min-w-[220px] max-w-[280px]">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                          <Mic className="w-4 h-4 text-white" />
+                        </div>
+                        <span className="text-xs font-bold truncate">{attachment.name}</span>
+                      </div>
+                      <audio controls src={attachment.url} className="w-full h-8 accent-white rounded-lg" />
                     </div>
                   ) : (
                     <a
@@ -505,23 +535,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
               {/* Reaction badges with Apple Pill Design */}
               {hasReactions && (
-                <div className="relative -mb-3 z-10 mr-3 flex items-center gap-0.5">
+                <div className="relative -mb-3 z-10 ml-3.5 flex items-center gap-0.5 select-none">
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
                       togglePicker();
                     }}
-                    className="px-2 py-0.5 rounded-full border border-white/10 shadow-sm flex items-center gap-1.5 cursor-pointer select-none transition-transform hover:scale-105 active:scale-95 bg-[#1C1D22] text-neutral-100"
+                    className={`px-2.5 py-0.5 rounded-full border shadow-sm flex items-center gap-1 cursor-pointer select-none transition-all hover:scale-108 active:scale-95 ${
+                      isDarkMode
+                        ? 'bg-[#2c2c2e]/95 border-white/15 text-neutral-100 shadow-black/40'
+                        : 'bg-white/95 border-black/10 text-neutral-900 shadow-neutral-400/20'
+                    } backdrop-blur-md`}
                   >
                     {message.reactions!.map((reactionKey, idx) => (
                       <span key={idx} className="flex items-center">
-                        {renderReactionIcon(reactionKey, 'text-xs')}
+                        {renderReactionIcon(reactionKey, 'text-xs sm:text-sm')}
                       </span>
                     ))}
+                    {message.reactions!.length > 1 && (
+                      <span className="text-[10px] font-bold opacity-75 ml-0.5">
+                        {message.reactions!.length}
+                      </span>
+                    )}
                   </div>
+                  {/* Apple Double-Tail Dots */}
                   <div className="flex flex-col items-center -ml-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-neutral-700" />
-                    <span className="w-1 h-1 rounded-full mt-0.5 bg-neutral-700" />
+                    <span className={`w-1.5 h-1.5 rounded-full border ${isDarkMode ? 'bg-[#2c2c2e] border-white/10' : 'bg-white border-black/10'}`} />
+                    <span className={`w-1 h-1 rounded-full -mt-0.5 border ${isDarkMode ? 'bg-[#2c2c2e] border-white/10' : 'bg-white border-black/10'}`} />
                   </div>
                 </div>
               )}
@@ -575,6 +615,20 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white">
                           <Maximize2 className="w-5 h-5 drop-shadow-md" />
                         </div>
+                      </div>
+                    ) : attachment.type === 'audio' ? (
+                      <div className={`flex flex-col gap-1.5 p-2.5 rounded-2xl border-[0.5px] min-w-[220px] max-w-[280px] ${
+                        isDarkMode
+                          ? 'bg-white/10 border-white/10 text-white'
+                          : 'bg-black/5 border-black/10 text-neutral-900'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center shrink-0">
+                            <Mic className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-bold truncate">{attachment.name}</span>
+                        </div>
+                        <audio controls src={attachment.url} className="w-full h-8 accent-blue-500 rounded-lg" />
                       </div>
                     ) : (
                       <a

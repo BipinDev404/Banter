@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage, ChatAttachment, PrivateChatRoom } from '../types';
 import { getAvatarForUser } from '../lib/avatars';
 import { X, MessageSquare, Plus, ArrowUp, Loader2, LogOut, Shield } from 'lucide-react';
@@ -57,9 +58,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
     }
   }, [isOpen]);
 
-  if (!isOpen || !room) return null;
-
-  const partnerAvatar = getAvatarForUser(room.partnerSessionId, room.partnerName, room.partnerAvatarId);
+  const partnerAvatar = room ? getAvatarForUser(room.partnerSessionId, room.partnerName, room.partnerAvatarId) : null;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -91,6 +90,8 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
     const trimmed = text.trim();
     if ((!trimmed && !pendingAttachment) || isSending || isProcessingFile) return;
 
+    inputRef.current?.focus();
+
     const replyData = replyTarget
       ? { userName: replyTarget.userName, snippet: replyTarget.snippet || '' }
       : undefined;
@@ -104,6 +105,9 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
       setPendingAttachment(null);
       setReplyTarget(null);
       inputRef.current?.focus();
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
     }
   };
 
@@ -112,22 +116,34 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-150 select-none">
-      <input
-        ref={fileInputRef}
-        type="file"
-        onChange={handleFileSelect}
-        accept="image/*,.pdf,.doc,.docx,.txt,.zip"
-        className="hidden"
-      />
+    <AnimatePresence>
+      {isOpen && room && partnerAvatar && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className="fixed inset-0 z-50 flex items-center justify-center sm:p-4 bg-black/70 backdrop-blur-md select-none"
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            accept="image/*,.pdf,.doc,.docx,.txt,.zip"
+            className="hidden"
+          />
 
-      <div
-        className={`relative z-10 w-full max-w-xl h-full sm:h-[90vh] sm:rounded-[32px] flex flex-col overflow-hidden shadow-2xl border transition-colors ${
-          isDarkMode
-            ? 'bg-[#121316] border-neutral-800 text-white'
-            : 'bg-white border-neutral-200 text-neutral-900'
-        }`}
-      >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 10 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 360 }}
+            className={`relative z-10 w-full max-w-xl h-full sm:h-[90vh] sm:rounded-[32px] flex flex-col overflow-hidden shadow-2xl border transition-colors ${
+              isDarkMode
+                ? 'bg-[#121316] border-neutral-800 text-white'
+                : 'bg-white border-neutral-200 text-neutral-900'
+            }`}
+          >
         {/* Private Chat Header */}
         <div
           className={`px-4 py-3.5 border-b flex items-center justify-between shrink-0 select-none ${
@@ -274,13 +290,16 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
 
           <button
             type="submit"
+            onMouseDown={(e) => e.preventDefault()}
             disabled={(!text.trim() && !pendingAttachment) || isSending || isProcessingFile}
             className="w-9 h-9 rounded-full bg-[#007AFF] hover:bg-[#0071E3] text-white flex items-center justify-center disabled:opacity-40 transition-all cursor-pointer shadow-xs active:scale-90"
           >
             {isProcessingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4.5 h-4.5 stroke-[3]" />}
           </button>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
   );
 };

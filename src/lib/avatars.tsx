@@ -137,42 +137,73 @@ export const TAPBACK_REACTIONS: TapbackReaction[] = [
 ];
 
 export function renderReactionIcon(reactionId: string, sizeClass = 'text-lg') {
-  switch (reactionId) {
+  let emojiChar = reactionId;
+
+  switch (reactionId.toLowerCase()) {
     case 'heart':
+    case 'love':
     case '❤️':
     case '💖':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>❤️</span>;
+      emojiChar = '❤️';
+      break;
     case 'thumbsup':
+    case 'like':
     case '👍':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>👍</span>;
+      emojiChar = '👍';
+      break;
     case 'thumbsdown':
+    case 'dislike':
     case '👎':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>👎</span>;
+      emojiChar = '👎';
+      break;
     case 'laugh':
     case 'haha':
     case '😂':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>😂</span>;
+      emojiChar = '😂';
+      break;
     case 'exclamation':
     case 'alert':
     case '‼️':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>‼️</span>;
+    case '!':
+      emojiChar = '‼️';
+      break;
     case 'question':
     case 'help':
     case '❓':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>❓</span>;
+    case '?':
+      emojiChar = '❓';
+      break;
     case 'flame':
     case 'fire':
     case '🔥':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>🔥</span>;
+      emojiChar = '🔥';
+      break;
     case 'party':
+    case 'celebrate':
     case '🎉':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>🎉</span>;
+      emojiChar = '🎉';
+      break;
     case 'star':
     case '✨':
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>✨</span>;
+    case '⭐':
+      emojiChar = '✨';
+      break;
     default:
-      return <span className={`${sizeClass} leading-none font-apple-emoji select-none drop-shadow-xs`}>{reactionId}</span>;
+      emojiChar = reactionId;
+      break;
   }
+
+  return (
+    <span
+      className={`font-apple-emoji leading-none inline-block select-none transform-gpu filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.18)] ${sizeClass}`}
+      style={{
+        fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+        lineHeight: 1,
+      }}
+    >
+      {emojiChar}
+    </span>
+  );
 }
 
 export function renderAvatarIcon(iconKey: string, className = 'w-5 h-5') {

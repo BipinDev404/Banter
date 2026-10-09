@@ -78,6 +78,40 @@ export async function processImageAttachment(file: File): Promise<ChatAttachment
 }
 
 /**
+ * Converts a recorded voice note audio blob into a ChatAttachment
+ */
+export async function processAudioBlobAttachment(
+  blob: Blob,
+  durationSeconds: number
+): Promise<ChatAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const mins = Math.floor(durationSeconds / 60);
+      const secs = durationSeconds % 60;
+      const timeLabel = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+
+      resolve({
+        id: 'att_voice_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7),
+        type: 'audio',
+        url: dataUrl,
+        name: `Voice Note (${timeLabel})`,
+        size: blob.size,
+        mimeType: blob.type || 'audio/webm',
+      });
+    };
+
+    reader.onerror = () => {
+      reject(new Error('Failed to process voice recording'));
+    };
+
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
  * General file reader for documents (PDF, TXT, DOCX, ZIP, Audio, Code).
  * Caps file size at 1.5MB to maintain Firestore limits and fast real-time sync.
  */
@@ -94,10 +128,11 @@ export async function processFileAttachment(file: File): Promise<ChatAttachment>
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
       const isImage = file.type.startsWith('image/');
+      const isAudio = file.type.startsWith('audio/');
 
       resolve({
         id: 'att_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7),
-        type: isImage ? 'image' : 'file',
+        type: isImage ? 'image' : isAudio ? 'audio' : 'file',
         url: dataUrl,
         name: file.name,
         size: file.size,

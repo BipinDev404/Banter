@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, Check, Search, UserPlus } from 'lucide-react';
 import { FriendItem, GroupItem } from '../types';
 import { REAL_ICON_AVATARS, getAvatarForUser } from '../lib/avatars';
@@ -37,8 +38,6 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     const q = searchQuery.toLowerCase().trim();
     return friends.filter((f) => f.friendName.toLowerCase().includes(q));
   }, [friends, searchQuery]);
-
-  if (!isOpen) return null;
 
   const toggleFriend = (friendSessionId: string) => {
     setError(null);
@@ -98,19 +97,31 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     groupAvatars.find((g) => g.id === selectedAvatarId) || groupAvatars[0];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150 select-none">
-      <div className="absolute inset-0" onClick={onClose} />
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md select-none"
+        >
+          <div className="absolute inset-0" onClick={onClose} />
 
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-group-title"
-        className={`relative z-10 w-full max-w-md rounded-[28px] border shadow-2xl flex flex-col overflow-hidden transition-all animate-in zoom-in-95 duration-150 backdrop-blur-2xl ${
-          isDarkMode
-            ? 'border-white/10 bg-[#1c1c1e] text-white'
-            : 'border-black/10 bg-white text-neutral-900 shadow-xl'
-        }`}
-      >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-group-title"
+            initial={{ opacity: 0, scale: 0.94, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 10 }}
+            transition={{ type: 'spring', damping: 26, stiffness: 360 }}
+            className={`relative z-10 w-full max-w-md rounded-[28px] border shadow-2xl flex flex-col overflow-hidden transition-colors backdrop-blur-2xl ${
+              isDarkMode
+                ? 'border-white/10 bg-[#1c1c1e] text-white'
+                : 'border-black/10 bg-white text-neutral-900 shadow-xl'
+            }`}
+          >
         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
         {/* Header */}
         <div
@@ -314,7 +325,9 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
   );
 };

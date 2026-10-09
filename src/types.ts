@@ -1,6 +1,6 @@
 export interface ChatAttachment {
   id: string;
-  type: 'image' | 'file';
+  type: 'image' | 'file' | 'audio';
   url: string; // Data URL or object URL
   name: string;
   size?: number; // Size in bytes

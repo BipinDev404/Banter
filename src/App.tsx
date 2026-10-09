@@ -271,10 +271,22 @@ export default function App() {
     setIsEntered(true);
   };
 
-  const handleSaveNewName = (newName: string) => {
+  const handleSaveNewName = (newName: string, newAvatarId?: string) => {
     const cleanName = newName.trim();
     saveUserName(cleanName);
     setUserName(cleanName);
+    if (newAvatarId) {
+      setSettings((prev) => {
+        const updated = { ...prev, avatarId: newAvatarId };
+        saveSettings(updated);
+        return updated;
+      });
+      try {
+        localStorage.setItem('banter_user_avatar', newAvatarId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
   };
 
   const handleClearData = () => {
