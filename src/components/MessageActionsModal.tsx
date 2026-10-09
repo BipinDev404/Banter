@@ -151,10 +151,10 @@ export const MessageActionsModal: React.FC<MessageActionsModalProps> = ({
                 onReact(t.id);
                 onClose();
               }}
-              className="w-8 h-8 rounded-full flex items-center justify-center hover:scale-125 transition-transform active:scale-90 cursor-pointer hover:bg-white dark:hover:bg-neutral-800 shadow-2xs"
+              className="w-9 h-9 rounded-full flex items-center justify-center hover:scale-125 transition-transform active:scale-90 cursor-pointer hover:bg-white dark:hover:bg-neutral-800 shadow-2xs"
               title={t.name}
             >
-              {renderReactionIcon(t.id, 'w-4 h-4')}
+              {renderReactionIcon(t.id, 'text-xl')}
             </button>
           ))}
         </div>

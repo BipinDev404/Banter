@@ -172,31 +172,18 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </div>
         ) : (
           /* Global Room Brand Header */
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`w-8 h-8 rounded-xl border flex items-center justify-center shadow-xs ${
-                isDarkMode ? 'bg-white/10 border-white/10' : 'bg-black/5 border-black/5'
-              }`}
-            >
-              <BanterLogo className="w-5 h-5 drop-shadow-xs" />
-            </div>
-            <div className="flex flex-col justify-center">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-lg tracking-tight leading-none">
-                  Banter
+          <div className="flex items-center gap-3 min-w-0">
+            <BanterLogo size="md" showText={true} />
+            {hasTypers && (
+              <span className="text-[11px] text-[#007AFF] font-medium tracking-tight flex items-center gap-1.5 animate-in fade-in">
+                <span>{typerLabel}</span>
+                <span className="inline-flex gap-0.5 items-center">
+                  <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:0s]" />
                 </span>
-              </div>
-              {hasTypers && (
-                <span className="text-[11px] text-[#007AFF] font-medium tracking-tight mt-0.5 flex items-center gap-1.5 animate-in fade-in">
-                  <span>{typerLabel}</span>
-                  <span className="inline-flex gap-0.5 items-center">
-                    <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:-0.3s]" />
-                    <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:-0.15s]" />
-                    <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:0s]" />
-                  </span>
-                </span>
-              )}
-            </div>
+              </span>
+            )}
           </div>
         )}
       </div>

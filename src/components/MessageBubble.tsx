@@ -288,12 +288,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <button
               key={t.id}
               onClick={() => handleSelectReaction(t.id)}
-              className={`w-8 h-8 rounded-full flex items-center justify-center hover:scale-125 transition-transform active:scale-90 cursor-pointer ${
+              className={`w-9 h-9 rounded-full flex items-center justify-center hover:scale-125 transition-transform active:scale-90 cursor-pointer ${
                 isDarkMode ? 'hover:bg-white/10' : 'hover:bg-black/5'
               }`}
               title={t.name}
             >
-              {renderReactionIcon(t.id, 'w-4 h-4')}
+              {renderReactionIcon(t.id, 'text-lg')}
             </button>
           ))}
 
@@ -371,7 +371,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 >
                   {message.reactions!.map((reactionKey, idx) => (
                     <span key={idx} className="flex items-center">
-                      {renderReactionIcon(reactionKey, 'w-3 h-3')}
+                      {renderReactionIcon(reactionKey, 'text-xs')}
                     </span>
                   ))}
                 </div>
@@ -515,7 +515,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   >
                     {message.reactions!.map((reactionKey, idx) => (
                       <span key={idx} className="flex items-center">
-                        {renderReactionIcon(reactionKey, 'w-3 h-3')}
+                        {renderReactionIcon(reactionKey, 'text-xs')}
                       </span>
                     ))}
                   </div>

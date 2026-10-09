@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Users, LogOut, ShieldCheck } from 'lucide-react';
-import { GroupItem } from '../types';
+import { GroupItem, GroupMemberInfo } from '../types';
 import { getGroupAvatar, getAvatarForUser, renderAvatarIcon } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
 
@@ -24,7 +24,7 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
   if (!isOpen || !group) return null;
 
   const groupAvatar = getGroupAvatar(group.avatarId, group.name);
-  const memberList = Object.values(group.memberDetails || {});
+  const memberList = Object.values(group.memberDetails || {}) as GroupMemberInfo[];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-150 select-none">

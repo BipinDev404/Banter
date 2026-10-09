@@ -8,6 +8,10 @@
     color-scheme: dark;
   }
 
+  .font-apple-emoji {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", -apple-system, sans-serif;
+  }
+
   * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;

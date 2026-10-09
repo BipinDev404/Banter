@@ -50,10 +50,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
         {/* Brand Header */}
         <div className="text-center mb-6 flex flex-col items-center">
-          <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 shadow-inner">
-            <BanterLogo className="w-9 h-9 drop-shadow-sm" />
+          <div className="mb-2">
+            <BanterLogo size="xl" showText={false} />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
+          <h1 className="text-2xl font-extrabold tracking-tight text-white">
             Welcome to Banter
           </h1>
           <p className="text-neutral-400 text-xs mt-1 font-normal tracking-tight">

@@ -77,11 +77,23 @@ export function handleFirestoreError(
 // Test connection on boot as mandated by Firebase skill
 export async function testConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Connection timeout')), 5000)
+    );
+    await Promise.race([
+      getDocFromServer(doc(db, 'test', 'connection')),
+      timeoutPromise,
+    ]);
     return true;
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is offline or reconnecting.');
+    if (error instanceof Error) {
+      if (
+        error.message.includes('offline') ||
+        error.message.includes('timeout') ||
+        error.message.includes('Backend didn\'t respond')
+      ) {
+        console.warn('Firebase client operating in offline/reconnecting mode.');
+      }
     }
     return false;
   }
