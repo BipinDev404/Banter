@@ -474,6 +474,7 @@ export default function App() {
         onSaveName={handleSaveNewName}
         onClearData={handleClearData}
         settings={settings}
+        isDarkMode={isDarkMode}
       />
 
       {/* Online Users List Modal */}

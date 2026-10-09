@@ -167,11 +167,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 {/* 2-Hour Auto-Purge Notice */}
-                <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2.5">
-                  <Clock className="w-4 h-4 text-amber-400 shrink-0 stroke-[2.2]" />
+                <div className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 ${
+                  isDarkMode
+                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                    : 'bg-amber-50 border-amber-300/40 text-amber-900'
+                }`}>
+                  <Clock className="w-4 h-4 text-amber-500 shrink-0 stroke-[2.2]" />
                   <div className="text-[11px] leading-tight">
                     <span className="font-bold block">2-Hour Auto-Expiration Active</span>
-                    <span className="text-amber-200/80">Messages and chat history automatically vanish after 2 hours.</span>
+                    <span className={isDarkMode ? 'text-amber-200/80' : 'text-amber-800'}>
+                      Messages and chat history automatically vanish after 2 hours.
+                    </span>
                   </div>
                 </div>
 

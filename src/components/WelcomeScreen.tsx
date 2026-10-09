@@ -85,7 +85,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         {/* Brand Header */}
         <div className="text-center mb-6 flex flex-col items-center">
           <div className="mb-3">
-            <BanterLogo size="xl" showText={true} />
+            <BanterLogo size="xl" showText={true} textClassName="text-white" />
           </div>
           <p className="text-neutral-400 text-xs font-normal tracking-tight">
             Talk. Laugh. Banter. Real-time live messaging.
@@ -123,7 +123,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </div>
 
           {/* Developer Section: Bipin Yadav GitHub Sync Profile */}
-          <DeveloperGitHubCard username="Bipindev404" />
+          <DeveloperGitHubCard username="Bipindev404" isDarkMode={true} />
         </div>
 
         {/* 2. Next: Prominent Start Chat Button */}

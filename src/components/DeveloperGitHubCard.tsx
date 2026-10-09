@@ -5,11 +5,13 @@ import { fetchGitHubProfile, GitHubProfileData } from '../lib/github';
 interface DeveloperGitHubCardProps {
   username?: string;
   className?: string;
+  isDarkMode?: boolean;
 }
 
 export const DeveloperGitHubCard: React.FC<DeveloperGitHubCardProps> = ({
   username = 'Bipindev404',
   className = '',
+  isDarkMode = true,
 }) => {
   const [profile, setProfile] = useState<GitHubProfileData | null>(null);
 
@@ -32,7 +34,13 @@ export const DeveloperGitHubCard: React.FC<DeveloperGitHubCardProps> = ({
   const bio = profile?.bio || 'Full-Stack Developer & Creator of Banter';
 
   return (
-    <div className={`p-4 rounded-2xl bg-white/[0.04] border border-white/10 relative overflow-hidden transition-all ${className}`}>
+    <div
+      className={`p-4 rounded-2xl border relative overflow-hidden transition-all ${
+        isDarkMode
+          ? 'bg-white/[0.04] border-white/10 text-white'
+          : 'bg-neutral-100/80 border-black/10 text-neutral-900 shadow-xs'
+      } ${className}`}
+    >
       {/* Top subtle glow bar */}
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-blue-500/30 to-transparent pointer-events-none" />
 
@@ -42,7 +50,9 @@ export const DeveloperGitHubCard: React.FC<DeveloperGitHubCardProps> = ({
           <div className="w-6 h-6 rounded-lg bg-[#007AFF]/20 text-[#007AFF] flex items-center justify-center">
             <Github className="w-3.5 h-3.5" />
           </div>
-          <span className="text-xs font-bold text-white tracking-wide">Developer</span>
+          <span className={`text-xs font-bold tracking-wide ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
+            Developer
+          </span>
         </div>
 
         <a
@@ -68,7 +78,9 @@ export const DeveloperGitHubCard: React.FC<DeveloperGitHubCardProps> = ({
           <img
             src={avatarUrl}
             alt={devName}
-            className="w-12 h-12 rounded-2xl border border-white/20 object-cover bg-neutral-800 shadow-md group-hover:scale-105 transition-transform"
+            className={`w-12 h-12 rounded-2xl border object-cover shadow-md group-hover:scale-105 transition-transform ${
+              isDarkMode ? 'border-white/20 bg-neutral-800' : 'border-black/10 bg-neutral-200'
+            }`}
             onError={(e) => {
               (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                 devName
@@ -79,10 +91,10 @@ export const DeveloperGitHubCard: React.FC<DeveloperGitHubCardProps> = ({
 
         {/* Developer Bio & Name */}
         <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-extrabold text-white truncate">
+          <h4 className={`text-sm font-extrabold truncate ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
             {devName}
           </h4>
-          <p className="text-xs text-neutral-300 leading-snug mt-0.5 line-clamp-2">
+          <p className={`text-xs leading-snug mt-0.5 line-clamp-2 ${isDarkMode ? 'text-neutral-300' : 'text-neutral-600'}`}>
             {bio}
           </p>
         </div>

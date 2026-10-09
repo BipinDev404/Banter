@@ -5,12 +5,14 @@ interface BanterLogoProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
+  textClassName?: string;
 }
 
 export const BanterLogo: React.FC<BanterLogoProps> = ({
   className = '',
   size = 'md',
   showText = true,
+  textClassName,
 }) => {
   const badgeSize =
     size === 'sm'
@@ -51,7 +53,9 @@ export const BanterLogo: React.FC<BanterLogoProps> = ({
       {/* Brand Name Text */}
       {showText && (
         <span
-          className={`text-white dark:text-white font-extrabold tracking-tight leading-none ${textSize}`}
+          className={`font-extrabold tracking-tight leading-none ${
+            textClassName || 'bg-gradient-to-r from-[#007AFF] to-[#0051a8] dark:from-white dark:to-neutral-100 bg-clip-text text-transparent'
+          } ${textSize}`}
         >
           Banter
         </span>
