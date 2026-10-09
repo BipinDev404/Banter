@@ -109,12 +109,15 @@ export const MessageList: React.FC<MessageListProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [hasUnreadBelow, setHasUnreadBelow] = useState(false);
+  const [unreadSender, setUnreadSender] = useState<string | null>(null);
   const isFirstLoadRef = useRef(true);
+  const lastMessageIdRef = useRef<string | null>(null);
 
   // Single active reaction box across the entire chat
   const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null);
 
-  // Close reaction box on click outside or scroll
+  // Close reaction box on click outside
   useEffect(() => {
     const handleGlobalClick = () => {
       setActiveReactionMsgId(null);
@@ -174,28 +177,53 @@ export const MessageList: React.FC<MessageListProps> = ({
     };
   }, []);
 
-  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     bottomRef.current?.scrollIntoView({ behavior });
-  };
+    setHasUnreadBelow(false);
+    setUnreadSender(null);
+  }, []);
 
+  // Handle auto-scrolling & new message detection
   useEffect(() => {
     if (loading && (!messages || messages.length === 0)) return;
 
     if (isFirstLoadRef.current && messages && messages.length > 0) {
       scrollToBottom('auto');
       isFirstLoadRef.current = false;
+      if (messages[messages.length - 1]) {
+        lastMessageIdRef.current = messages[messages.length - 1].id;
+      }
       return;
     }
 
     const container = containerRef.current;
     if (!container) return;
 
-    const distanceFromBottom =
-      container.scrollHeight - container.scrollTop - container.clientHeight;
-    if (distanceFromBottom < 180) {
-      scrollToBottom('smooth');
+    const latestMsg = messages[messages.length - 1];
+    if (!latestMsg) return;
+
+    const isNewMessage = latestMsg.id !== lastMessageIdRef.current;
+    if (isNewMessage) {
+      lastMessageIdRef.current = latestMsg.id;
+
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+
+      // Rule 1: If current user sent this message, ALWAYS scroll to bottom smoothly!
+      if (latestMsg.userId === currentUserId) {
+        scrollToBottom('smooth');
+      } else {
+        // Rule 2: If another user sent a message, check if user is scrolled up or at bottom
+        if (distanceFromBottom < 180) {
+          scrollToBottom('smooth');
+        } else {
+          // Scrolled up: do NOT jump! Indicate new message below
+          setHasUnreadBelow(true);
+          setUnreadSender(latestMsg.userName || 'New Message');
+        }
+      }
     }
-  }, [messages, loading, typingUsers]);
+  }, [messages, loading, currentUserId, scrollToBottom]);
 
   const handleScroll = () => {
     const container = containerRef.current;
@@ -203,7 +231,16 @@ export const MessageList: React.FC<MessageListProps> = ({
 
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
-    setShowScrollBottom(distanceFromBottom > 240);
+
+    if (distanceFromBottom < 80) {
+      if (hasUnreadBelow) {
+        setHasUnreadBelow(false);
+        setUnreadSender(null);
+      }
+      setShowScrollBottom(false);
+    } else {
+      setShowScrollBottom(distanceFromBottom > 240 || hasUnreadBelow);
+    }
   };
 
   const participantNames = React.useMemo(() => {
@@ -234,38 +271,39 @@ export const MessageList: React.FC<MessageListProps> = ({
     <div
       ref={containerRef}
       onScroll={handleScroll}
+      style={{ overflowAnchor: 'none' }}
       className={`flex-1 overflow-y-auto px-4 sm:px-8 py-4 relative transition-colors ${
         isDarkMode ? 'bg-black text-white' : 'bg-[#F2F2F7] text-neutral-900'
       }`}
     >
-      <div className="max-w-3xl mx-auto w-full flex flex-col min-h-full">
-        {/* Top Activity Banner: Apple notification capsule */}
-        {activeNotice && (
-          <div className="sticky top-1 z-20 flex justify-center pb-2 pointer-events-none select-none">
-            <div
-              key={activeNotice.id}
-              className={`pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-md border backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 ${
-                isDarkMode
-                  ? 'border-white/10 bg-[#1c1c1e]/90 text-neutral-200'
-                  : 'border-black/5 bg-white/95 text-neutral-800 shadow-sm'
-              }`}
-            >
-              {activeNotice.type === 'join' || activeNotice.text.toLowerCase().includes('joined') ? (
-                <span className="flex items-center gap-1 text-emerald-500 dark:text-emerald-400">
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-neutral-400">
-                  <UserMinus className="w-3.5 h-3.5" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
-                </span>
-              )}
-              <span>{activeNotice.text}</span>
-            </div>
+      {/* Floating System Notice Banner: Non-layout shifting overlay */}
+      {activeNotice && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 pointer-events-none select-none">
+          <div
+            key={activeNotice.id}
+            className={`pointer-events-auto inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium shadow-lg border backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 ${
+              isDarkMode
+                ? 'border-white/10 bg-[#1c1c1e]/90 text-neutral-200'
+                : 'border-black/5 bg-white/95 text-neutral-800 shadow-md'
+            }`}
+          >
+            {activeNotice.type === 'join' || activeNotice.text.toLowerCase().includes('joined') ? (
+              <span className="flex items-center gap-1 text-emerald-500 dark:text-emerald-400">
+                <UserPlus className="w-3.5 h-3.5" />
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-neutral-400">
+                <UserMinus className="w-3.5 h-3.5" />
+                <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
+              </span>
+            )}
+            <span>{activeNotice.text}</span>
           </div>
-        )}
+        </div>
+      )}
 
+      <div className="max-w-3xl mx-auto w-full flex flex-col min-h-full">
         {/* Load older messages button if available */}
         {hasMore && (
           <div className="flex justify-center pb-2">
@@ -299,33 +337,18 @@ export const MessageList: React.FC<MessageListProps> = ({
                 return (
                   <React.Fragment key={msg.id || index}>
                     {showDateDivider && msg.createdAt && (
-                      <motion.div
-                        layout="position"
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ type: 'spring', damping: 26, stiffness: 380 }}
-                        className="flex justify-center my-4 select-none"
-                        style={{ willChange: 'transform, opacity' }}
-                      >
+                      <div className="flex justify-center my-4 select-none">
                         <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
                           {formatDividerDate(msg.createdAt)}
                         </span>
-                      </motion.div>
+                      </div>
                     )}
 
                     <motion.div
-                      layout
-                      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                      initial={{ opacity: 0, y: 12, scale: 0.98 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.96, y: -12 }}
-                      transition={{
-                        layout: { type: 'spring', damping: 28, stiffness: 380 },
-                        opacity: { duration: 0.18, ease: 'easeOut' },
-                        scale: { type: 'spring', damping: 24, stiffness: 380 },
-                        y: { type: 'spring', damping: 24, stiffness: 380 },
-                      }}
-                      style={{ willChange: 'transform, opacity' }}
+                      exit={{ opacity: 0, scale: 0.96, y: -8 }}
+                      transition={{ duration: 0.16, ease: 'easeOut' }}
                     >
                       <MessageBubble
                         message={msg}
@@ -364,14 +387,26 @@ export const MessageList: React.FC<MessageListProps> = ({
       {showScrollBottom && (
         <button
           onClick={() => scrollToBottom('smooth')}
-          className={`fixed bottom-24 right-8 p-2.5 rounded-full shadow-2xl border active:scale-95 transition-all cursor-pointer z-30 flex items-center justify-center animate-in fade-in backdrop-blur-md ${
-            isDarkMode
+          className={`fixed bottom-24 right-6 sm:right-10 px-3.5 py-2 rounded-full shadow-2xl border active:scale-95 transition-all cursor-pointer z-30 flex items-center justify-center gap-2 animate-in fade-in slide-in-from-bottom-3 backdrop-blur-xl ${
+            hasUnreadBelow
+              ? 'bg-[#007AFF] text-white border-blue-400/40 shadow-blue-500/30'
+              : isDarkMode
               ? 'border-white/10 bg-[#1c1c1e]/90 hover:bg-[#2c2c2e] text-white'
               : 'border-black/5 bg-white/90 hover:bg-white text-neutral-800 shadow-lg'
           }`}
           aria-label="Scroll to newest message"
         >
-          <ArrowDown className="w-4 h-4 stroke-[2.5]" />
+          {hasUnreadBelow ? (
+            <>
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
+              <span className="text-xs font-extrabold tracking-tight">
+                {unreadSender ? `New msg from ${unreadSender}` : 'New Messages'}
+              </span>
+              <ArrowDown className="w-3.5 h-3.5 stroke-[3]" />
+            </>
+          ) : (
+            <ArrowDown className="w-4 h-4 stroke-[2.5]" />
+          )}
         </button>
       )}
     </div>

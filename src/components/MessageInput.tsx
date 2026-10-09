@@ -571,8 +571,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               className={`w-full bg-transparent text-[15px] focus:outline-none font-normal tracking-[-0.015em] ${
                 isDarkMode ? 'text-white placeholder-neutral-500' : 'text-neutral-900 placeholder-neutral-400'
               }`}
-              autoComplete="off"
+              autoCapitalize="sentences"
               autoCorrect="on"
+              spellCheck={true}
+              enterKeyHint="send"
             />
           </div>
         )}
