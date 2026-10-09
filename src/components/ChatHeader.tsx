@@ -173,7 +173,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         ) : (
           /* Global Room Brand Header */
           <div className="flex items-center gap-3 min-w-0">
-            <BanterLogo size="md" showText={true} />
+            <BanterLogo size="md" showText={true} isDarkMode={isDarkMode} />
             {hasTypers && (
               <span className="text-[11px] text-[#007AFF] font-medium tracking-tight flex items-center gap-1.5 animate-in fade-in">
                 <span>{typerLabel}</span>

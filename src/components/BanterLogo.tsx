@@ -6,6 +6,7 @@ interface BanterLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
   textClassName?: string;
+  isDarkMode?: boolean;
 }
 
 export const BanterLogo: React.FC<BanterLogoProps> = ({
@@ -13,6 +14,7 @@ export const BanterLogo: React.FC<BanterLogoProps> = ({
   size = 'md',
   showText = true,
   textClassName,
+  isDarkMode,
 }) => {
   const badgeSize =
     size === 'sm'
@@ -54,7 +56,7 @@ export const BanterLogo: React.FC<BanterLogoProps> = ({
       {showText && (
         <span
           className={`font-extrabold tracking-tight leading-none ${
-            textClassName || 'bg-gradient-to-r from-[#007AFF] to-[#0051a8] dark:from-white dark:to-neutral-100 bg-clip-text text-transparent'
+            textClassName || (isDarkMode === false ? 'text-[#007AFF]' : isDarkMode === true ? 'text-white' : 'text-[#007AFF] dark:text-white')
           } ${textSize}`}
         >
           Banter
