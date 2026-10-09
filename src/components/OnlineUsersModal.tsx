@@ -47,7 +47,7 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md select-none"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md select-none"
         >
           <div className="absolute inset-0" onClick={onClose} />
 
@@ -55,11 +55,11 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
             role="dialog"
             aria-modal="true"
             aria-labelledby="online-users-title"
-            initial={{ opacity: 0, scale: 0.94, y: 10 }}
+            initial={{ opacity: 0, scale: 0.95, y: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 10 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 360 }}
-            className={`relative z-10 w-full max-w-sm rounded-[28px] border shadow-2xl p-5 overflow-hidden transition-colors backdrop-blur-2xl ${
+            exit={{ opacity: 0, scale: 0.95, y: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+            className={`relative z-10 w-full max-w-sm rounded-[32px] border shadow-2xl p-5 overflow-hidden transition-colors backdrop-blur-2xl ${
               isDarkMode
                 ? 'border-white/10 bg-[#1c1c1e] text-white'
                 : 'border-black/10 bg-white text-neutral-900 shadow-xl'

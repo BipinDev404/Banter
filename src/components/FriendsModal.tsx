@@ -140,7 +140,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md select-none"
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md select-none"
           >
             {/* Backdrop */}
             <div className="absolute inset-0" onClick={onClose} />
@@ -149,11 +149,11 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
               role="dialog"
               aria-modal="true"
               aria-labelledby="friends-title"
-              initial={{ opacity: 0, scale: 0.94, y: 10 }}
+              initial={{ opacity: 0, scale: 0.96, y: 0 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: 10 }}
-              transition={{ type: 'spring', damping: 26, stiffness: 360 }}
-              className={`relative z-10 w-full max-w-lg h-[88vh] sm:h-[620px] rounded-[28px] border shadow-2xl flex flex-col overflow-hidden transition-colors backdrop-blur-2xl ${
+              exit={{ opacity: 0, scale: 0.96, y: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+              className={`relative z-10 w-full max-w-lg h-[85vh] max-h-[640px] rounded-[32px] border shadow-2xl flex flex-col overflow-hidden transition-colors backdrop-blur-2xl ${
                 isDarkMode
                   ? 'border-white/10 bg-[#1c1c1e] text-white'
                   : 'border-black/10 bg-white text-neutral-900 shadow-xl'
@@ -163,23 +163,23 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
           <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
 
           {/* Header */}
-          <div className={`px-5 py-4 border-b flex items-center justify-between shrink-0 ${
+          <div className={`px-4 sm:px-5 py-3.5 sm:py-4 border-b flex items-center justify-between shrink-0 ${
             isDarkMode ? 'border-white/10 bg-white/[0.02]' : 'border-black/5 bg-black/[0.01]'
           }`}>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-2xl bg-[#007AFF]/15 text-[#007AFF] flex items-center justify-center shadow-xs shrink-0">
                 <Users className="w-5 h-5 stroke-[2.2]" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h2 id="friends-title" className={`text-base font-bold tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-neutral-900'}`}>
                     Friends & Groups
                   </h2>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400">
+                  <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#007AFF]/15 text-[#007AFF]">
                     {friends.length} {friends.length === 1 ? 'friend' : 'friends'} • {groups.length} {groups.length === 1 ? 'group' : 'groups'}
                   </span>
                 </div>
-                <p className="text-[11px] text-neutral-400 mt-0.5">
+                <p className="text-[11px] text-neutral-400 mt-0.5 truncate">
                   Message friends or group chat with your circle
                 </p>
               </div>
@@ -187,26 +187,26 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
 
             <button
               onClick={onClose}
-              className={`p-1.5 rounded-full transition-colors cursor-pointer active:scale-90 ${
+              className={`p-2 rounded-full transition-colors cursor-pointer active:scale-90 shrink-0 ml-2 ${
                 isDarkMode
                   ? 'text-neutral-400 hover:text-white hover:bg-white/10'
                   : 'text-neutral-500 hover:text-neutral-900 hover:bg-black/5'
               }`}
               aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4.5 h-4.5" />
             </button>
           </div>
 
           {/* Tab Navigation */}
-          <div className={`px-4 py-2 border-b flex items-center gap-1.5 shrink-0 overflow-x-auto scrollbar-none ${
+          <div className={`px-3 sm:px-4 py-2 border-b flex items-center gap-1.5 shrink-0 overflow-x-auto scrollbar-none ${
             isDarkMode ? 'border-white/10 bg-white/[0.01]' : 'border-black/5 bg-neutral-50/70'
           }`}>
             {/* My Friends Tab */}
             <button
               type="button"
               onClick={() => setActiveTab('friends')}
-              className={`px-3 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-none justify-center px-3 py-2 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap min-h-[38px] ${
                 activeTab === 'friends'
                   ? 'bg-[#007AFF] text-white shadow-xs'
                   : isDarkMode
@@ -229,7 +229,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('groups')}
-              className={`px-3 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex-1 sm:flex-none justify-center px-3 py-2 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap min-h-[38px] ${
                 activeTab === 'groups'
                   ? 'bg-[#007AFF] text-white shadow-xs'
                   : isDarkMode
@@ -252,7 +252,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('requests')}
-              className={`px-3 py-1.5 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap relative ${
+              className={`flex-1 sm:flex-none justify-center px-3 py-2 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap relative min-h-[38px] ${
                 activeTab === 'requests'
                   ? 'bg-[#007AFF] text-white shadow-xs'
                   : isDarkMode
@@ -261,7 +261,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
               }`}
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>Requests & Add</span>
+              <span>Requests</span>
               {incomingRequests.length > 0 && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               )}

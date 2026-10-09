@@ -49,18 +49,18 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md select-none"
+          className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md select-none"
         >
           <div className="absolute inset-0" onClick={onClose} />
 
           <motion.div
             role="dialog"
             aria-modal="true"
-            initial={{ opacity: 0, scale: 0.94, y: 10 }}
+            initial={{ opacity: 0, scale: 0.95, y: 0 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 10 }}
-            transition={{ type: 'spring', damping: 26, stiffness: 360 }}
-            className={`relative z-10 w-full max-w-sm rounded-[28px] border p-6 overflow-hidden transition-colors ${
+            exit={{ opacity: 0, scale: 0.95, y: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+            className={`relative z-10 w-full max-w-sm rounded-[32px] border p-5 sm:p-6 overflow-hidden transition-colors ${
               isDarkMode
                 ? 'bg-[#1c1c1e] border-white/10 text-white shadow-2xl'
                 : 'bg-white border-black/10 text-neutral-900 shadow-xl'
@@ -72,10 +72,10 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
             {/* Close Button */}
             <button
               onClick={onClose}
-              className={`absolute top-4 right-4 p-1.5 rounded-full transition-colors cursor-pointer active:scale-90 ${
+              className={`absolute top-4 right-4 p-2 rounded-full transition-colors cursor-pointer active:scale-90 ${
                 isDarkMode
                   ? 'text-neutral-400 hover:text-white hover:bg-white/10'
-                  : 'text-neutral-400 hover:text-neutral-900 hover:bg-black/5'
+                  : 'text-neutral-500 hover:text-neutral-900 hover:bg-black/5'
               }`}
               aria-label="Close"
             >
@@ -83,13 +83,13 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
             </button>
 
             {/* Center Content */}
-            <div className="flex flex-col items-center text-center mt-1">
+            <div className="flex flex-col items-center text-center mt-0.5">
               {/* Top Badge Icon */}
               <div
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-xs border ${
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3.5 shadow-sm border ${
                   data.type === 'accepted'
-                    ? 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400'
-                    : 'bg-blue-500/15 border-blue-500/25 text-[#007AFF]'
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-500 dark:text-emerald-400'
+                    : 'bg-[#007AFF]/15 border-[#007AFF]/30 text-[#007AFF]'
                 }`}
               >
                 {data.type === 'accepted' ? (
@@ -102,18 +102,20 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
               </div>
 
               {/* Title */}
-              <h3 className="text-lg font-bold tracking-tight mb-1">
+              <h3 className={`text-lg font-bold tracking-tight mb-1 ${
+                isDarkMode ? 'text-white' : 'text-neutral-900'
+              }`}>
                 {data.type === 'incoming' && 'New Friend Request'}
                 {data.type === 'sent' && 'Friend Request Sent'}
                 {data.type === 'accepted' && 'You Are Now Friends!'}
               </h3>
 
-              {/* Subtitle / User Card */}
+              {/* User Card */}
               <div
-                className={`p-3 rounded-2xl border flex items-center gap-3 my-3 w-full text-left ${
+                className={`p-3.5 rounded-2xl border flex items-center gap-3.5 my-3.5 w-full text-left ${
                   isDarkMode
-                    ? 'bg-[#2c2c2e]/70 border-white/5'
-                    : 'bg-neutral-100 border-black/5'
+                    ? 'bg-[#2c2c2e]/80 border-white/10 text-white'
+                    : 'bg-neutral-100/90 border-black/5 text-neutral-900'
                 }`}
               >
                 <UserAvatar avatar={avatar} size="md" />
@@ -121,7 +123,9 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
                   <p className="text-sm font-bold truncate">
                     {data.targetUserName}
                   </p>
-                  <p className="text-[11px] text-neutral-400 truncate">
+                  <p className={`text-[11px] truncate mt-0.5 ${
+                    isDarkMode ? 'text-neutral-400' : 'text-neutral-500'
+                  }`}>
                     {data.type === 'incoming' && 'Sent you a friend request'}
                     {data.type === 'sent' && 'Request pending approval'}
                     {data.type === 'accepted' && 'Connected & ready to chat'}
@@ -130,17 +134,19 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
               </div>
 
               {/* Description */}
-              <p className="text-xs text-neutral-400 mb-5 leading-relaxed px-1">
+              <p className={`text-xs mb-5 leading-relaxed px-1 ${
+                isDarkMode ? 'text-neutral-400' : 'text-neutral-500'
+              }`}>
                 {data.type === 'incoming' &&
-                  `Would you like to accept ${data.targetUserName}'s friend request to chat together?`}
+                  `Would you like to accept ${data.targetUserName}'s request to connect and chat anytime?`}
                 {data.type === 'sent' &&
-                  `A friend request has been sent to ${data.targetUserName}. They will see a popup to connect.`}
+                  `A friend request has been sent to ${data.targetUserName}. They will see a notification to accept.`}
                 {data.type === 'accepted' &&
-                  `You and ${data.targetUserName} can now send messages anytime.`}
+                  `You and ${data.targetUserName} can now exchange direct messages and invite each other to group chats.`}
               </p>
 
-              {/* Actions */}
-              <div className="w-full flex items-center gap-2">
+              {/* Actions - Touch targets optimized for phone screens (min-h-[44px]) */}
+              <div className="w-full flex items-center gap-2.5">
                 {data.type === 'incoming' ? (
                   <>
                     <button
@@ -149,10 +155,10 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
                         onDecline?.();
                         onClose();
                       }}
-                      className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer active:scale-95 border ${
+                      className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-2xl text-xs font-semibold transition-all cursor-pointer active:scale-[0.98] border ${
                         isDarkMode
                           ? 'bg-white/5 hover:bg-white/10 border-white/10 text-neutral-300'
-                          : 'bg-black/5 hover:bg-black/10 border-black/5 text-neutral-700'
+                          : 'bg-black/5 hover:bg-black/10 border-black/10 text-neutral-700'
                       }`}
                     >
                       Decline
@@ -163,10 +169,10 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
                         onAccept?.();
                         onClose();
                       }}
-                      className="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold bg-[#007AFF] hover:bg-[#0071E3] text-white transition-all cursor-pointer active:scale-95 shadow-md flex items-center justify-center gap-1.5"
+                      className="flex-1 min-h-[44px] py-2.5 px-4 rounded-2xl text-xs font-bold bg-[#007AFF] hover:bg-[#0071E3] text-white transition-all cursor-pointer active:scale-[0.98] shadow-md flex items-center justify-center gap-1.5"
                     >
-                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>Accept</span>
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      <span>Accept Request</span>
                     </button>
                   </>
                 ) : data.type === 'accepted' && onStartChat ? (
@@ -174,10 +180,10 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
                     <button
                       type="button"
                       onClick={onClose}
-                      className={`py-2.5 px-4 rounded-xl text-xs font-semibold transition-all cursor-pointer active:scale-95 border ${
+                      className={`min-h-[44px] py-2.5 px-4 rounded-2xl text-xs font-semibold transition-all cursor-pointer active:scale-[0.98] border ${
                         isDarkMode
                           ? 'bg-white/5 hover:bg-white/10 border-white/10 text-neutral-300'
-                          : 'bg-black/5 hover:bg-black/10 border-black/5 text-neutral-700'
+                          : 'bg-black/5 hover:bg-black/10 border-black/10 text-neutral-700'
                       }`}
                     >
                       Close
@@ -188,17 +194,17 @@ export const FriendAlertModal: React.FC<FriendAlertModalProps> = ({
                         onStartChat();
                         onClose();
                       }}
-                      className="flex-1 py-2.5 px-4 rounded-xl text-xs font-semibold bg-[#007AFF] hover:bg-[#0071E3] text-white transition-all cursor-pointer active:scale-95 shadow-md flex items-center justify-center gap-1.5"
+                      className="flex-1 min-h-[44px] py-2.5 px-4 rounded-2xl text-xs font-bold bg-[#007AFF] hover:bg-[#0071E3] text-white transition-all cursor-pointer active:scale-[0.98] shadow-md flex items-center justify-center gap-1.5"
                     >
-                      <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
-                      <span>Chat Now</span>
+                      <MessageSquare className="w-4 h-4 stroke-[2.2]" />
+                      <span>Start Chat</span>
                     </button>
                   </>
                 ) : (
                   <button
                     type="button"
                     onClick={onClose}
-                    className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-[#007AFF] hover:bg-[#0071E3] text-white transition-all cursor-pointer active:scale-95 shadow-md"
+                    className="w-full min-h-[44px] py-2.5 px-4 rounded-2xl text-xs font-bold bg-[#007AFF] hover:bg-[#0071E3] text-white transition-all cursor-pointer active:scale-[0.98] shadow-md"
                   >
                     Done
                   </button>
