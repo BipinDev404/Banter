@@ -1,11 +1,210 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '../types';
 import { getAvatarForUser, TAPBACK_REACTIONS, renderReactionIcon } from '../lib/avatars';
-import { Reply, FileText, Download, Maximize2, Smile, Mic } from 'lucide-react';
+import { Reply, FileText, Download, Maximize2, Smile, Mic, Play, Pause } from 'lucide-react';
 import { formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
 import { UserAvatar } from './UserAvatar';
+
+const VOICE_WAVEFORM_BARS = [
+  35, 65, 40, 85, 100, 50, 75, 30, 90, 60, 45, 80, 95, 40, 70, 55, 30, 85, 60, 40, 75, 50, 90, 35
+];
+
+interface VoiceNotePlayerProps {
+  audioUrl: string;
+  isSelf: boolean;
+  isDarkMode?: boolean;
+}
+
+const VoiceNotePlayer: React.FC<VoiceNotePlayerProps> = ({ audioUrl, isSelf, isDarkMode = false }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [speed, setSpeed] = useState<1 | 1.5 | 2>(1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+
+    const onLoadedMetadata = () => {
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        setDuration(audio.duration);
+      }
+    };
+
+    const onTimeUpdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const onEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('ended', onEnded);
+
+    return () => {
+      audio.pause();
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('ended', onEnded);
+    };
+  }, [audioUrl]);
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch((err) => console.warn('Audio playback note:', err));
+    }
+  };
+
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (!audioRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    const newTime = percentage * duration;
+    audioRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const cycleSpeed = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const speeds: (1 | 1.5 | 2)[] = [1, 1.5, 2];
+    const nextIndex = (speeds.indexOf(speed) + 1) % speeds.length;
+    const nextSpeed = speeds[nextIndex];
+    setSpeed(nextSpeed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = nextSpeed;
+    }
+  };
+
+  const formatTime = (secs: number) => {
+    if (!secs || isNaN(secs) || !isFinite(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const progress = duration > 0 ? currentTime / duration : 0;
+
+  return (
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className={`flex flex-col gap-2 p-2.5 rounded-2xl select-none min-w-[220px] max-w-[280px] ${
+        isSelf
+          ? 'bg-white/15 text-white border-[0.5px] border-white/25 shadow-xs'
+          : isDarkMode
+          ? 'bg-[#1c1d22] text-white border-[0.5px] border-white/10 shadow-xs'
+          : 'bg-white text-neutral-900 border-[0.5px] border-black/10 shadow-sm'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        {/* Play/Pause Button with WhatsApp Blue Mic Badge */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={togglePlay}
+            className={`w-11 h-11 rounded-full flex items-center justify-center transition-transform active:scale-90 cursor-pointer shadow-md ${
+              isSelf
+                ? 'bg-white text-[#007AFF] hover:bg-neutral-100'
+                : 'bg-[#007AFF] text-white hover:bg-[#0071E3]'
+            }`}
+          >
+            {isPlaying ? (
+              <Pause className="w-5 h-5 fill-current" />
+            ) : (
+              <Play className="w-5 h-5 fill-current ml-0.5" />
+            )}
+          </button>
+
+          {/* Blue Mic Badge */}
+          <div
+            className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 shadow-xs ${
+              isSelf
+                ? 'border-[#007AFF] bg-white text-[#007AFF]'
+                : 'border-white dark:border-[#1c1d22] bg-[#007AFF] text-white'
+            }`}
+          >
+            <Mic className="w-2.5 h-2.5 stroke-[2.5]" />
+          </div>
+        </div>
+
+        {/* Waveform Visualization & Time */}
+        <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-0">
+          {/* Interactive Seekable Waveform */}
+          <div
+            onClick={handleSeek}
+            className="flex items-center gap-[2.5px] h-7 cursor-pointer py-1 group/wave"
+            title="Click to seek"
+          >
+            {VOICE_WAVEFORM_BARS.map((heightPercent, idx) => {
+              const barProgress = idx / VOICE_WAVEFORM_BARS.length;
+              const isPlayed = barProgress <= progress;
+              return (
+                <div
+                  key={idx}
+                  style={{ height: `${heightPercent}%` }}
+                  className={`w-[3px] rounded-full transition-all duration-150 ${
+                    isPlayed
+                      ? isSelf
+                        ? 'bg-white'
+                        : 'bg-[#007AFF]'
+                      : isSelf
+                      ? 'bg-white/35 group-hover/wave:bg-white/50'
+                      : isDarkMode
+                      ? 'bg-white/20 group-hover/wave:bg-white/30'
+                      : 'bg-black/15 group-hover/wave:bg-black/25'
+                  }`}
+                />
+              );
+            })}
+          </div>
+
+          {/* Time & Playback Speed */}
+          <div className="flex items-center justify-between text-[11px] font-semibold tracking-tight">
+            <span
+              className={
+                isSelf
+                  ? 'text-white/90 font-mono'
+                  : isDarkMode
+                  ? 'text-neutral-400 font-mono'
+                  : 'text-neutral-500 font-mono'
+              }
+            >
+              {isPlaying ? formatTime(currentTime) : formatTime(duration || 0)}
+            </span>
+
+            <button
+              type="button"
+              onClick={cycleSpeed}
+              className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold transition-colors cursor-pointer ${
+                isSelf
+                  ? 'bg-white/20 text-white hover:bg-white/30'
+                  : 'bg-blue-500/10 text-[#007AFF] hover:bg-blue-500/20'
+              }`}
+              title="Playback speed"
+            >
+              {speed}x
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -450,15 +649,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       </div>
                     </div>
                   ) : attachment.type === 'audio' ? (
-                    <div className="flex flex-col gap-1.5 p-2.5 rounded-2xl bg-white/15 border-[0.5px] border-white/20 text-white min-w-[220px] max-w-[280px]">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                          <Mic className="w-4 h-4 text-white" />
-                        </div>
-                        <span className="text-xs font-bold truncate">{attachment.name}</span>
-                      </div>
-                      <audio controls src={attachment.url} className="w-full h-8 accent-white rounded-lg" />
-                    </div>
+                    <VoiceNotePlayer audioUrl={attachment.url} isSelf={true} isDarkMode={isDarkMode} />
                   ) : (
                     <a
                       href={attachment.url}
@@ -617,19 +808,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         </div>
                       </div>
                     ) : attachment.type === 'audio' ? (
-                      <div className={`flex flex-col gap-1.5 p-2.5 rounded-2xl border-[0.5px] min-w-[220px] max-w-[280px] ${
-                        isDarkMode
-                          ? 'bg-white/10 border-white/10 text-white'
-                          : 'bg-black/5 border-black/10 text-neutral-900'
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-blue-500/20 text-blue-500 flex items-center justify-center shrink-0">
-                            <Mic className="w-4 h-4" />
-                          </div>
-                          <span className="text-xs font-bold truncate">{attachment.name}</span>
-                        </div>
-                        <audio controls src={attachment.url} className="w-full h-8 accent-blue-500 rounded-lg" />
-                      </div>
+                      <VoiceNotePlayer audioUrl={attachment.url} isSelf={false} isDarkMode={isDarkMode} />
                     ) : (
                       <a
                         href={attachment.url}

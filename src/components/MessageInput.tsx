@@ -381,7 +381,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                   />
                 </div>
               ) : pendingAttachment.type === 'audio' ? (
-                <div className="w-11 h-11 rounded-xl bg-red-500/20 text-red-500 flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 rounded-xl bg-blue-500/15 text-[#007AFF] flex items-center justify-center shrink-0 border border-blue-500/20">
                   <Mic className="w-5 h-5 stroke-[2.2]" />
                 </div>
               ) : (
@@ -485,22 +485,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         </button>
 
         {isRecording ? (
-          /* Live Voice Note Recording Bar */
-          <div className="flex-1 rounded-full px-4 py-1.5 flex items-center justify-between min-h-[42px] bg-red-500/10 border border-red-500/30 text-red-500 animate-in fade-in select-none">
+          /* Live Voice Note Recording Bar - WhatsApp/Instagram Style */
+          <div className="flex-1 rounded-full px-4 py-1.5 flex items-center justify-between min-h-[42px] bg-blue-500/10 border border-blue-500/30 text-[#007AFF] animate-in fade-in select-none">
             <div className="flex items-center gap-2.5">
               <span className="relative flex h-3 w-3 shrink-0">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#007AFF]"></span>
               </span>
-              <span className="text-xs font-bold font-mono tracking-wider shrink-0">
+              <span className="text-xs font-bold font-mono tracking-wider shrink-0 text-[#007AFF] dark:text-blue-400">
                 {formatTimer(recordingDuration)}
               </span>
-              {/* Voice Soundwave Indicator */}
-              <div className="hidden sm:flex items-center gap-1 ml-1">
-                <span className="w-1 h-3 bg-red-500 rounded-full animate-pulse" />
-                <span className="w-1 h-5 bg-red-500 rounded-full animate-pulse [animation-delay:150ms]" />
-                <span className="w-1 h-2 bg-red-500 rounded-full animate-pulse [animation-delay:300ms]" />
-                <span className="w-1 h-4 bg-red-500 rounded-full animate-pulse [animation-delay:100ms]" />
+              {/* Voice Soundwave Indicator - Animated equalizer bars */}
+              <div className="flex items-center gap-1 ml-1.5 h-5">
+                <span className="w-1 h-2.5 bg-[#007AFF] rounded-full animate-bounce [animation-duration:800ms]" />
+                <span className="w-1 h-5 bg-[#007AFF] rounded-full animate-bounce [animation-duration:600ms] [animation-delay:150ms]" />
+                <span className="w-1 h-3 bg-[#007AFF] rounded-full animate-bounce [animation-duration:900ms] [animation-delay:300ms]" />
+                <span className="w-1 h-4.5 bg-[#007AFF] rounded-full animate-bounce [animation-duration:700ms] [animation-delay:100ms]" />
+                <span className="w-1 h-2 bg-[#007AFF] rounded-full animate-bounce [animation-duration:850ms] [animation-delay:200ms]" />
               </div>
             </div>
 
@@ -508,7 +509,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={() => stopRecording(false)}
-                className="p-1.5 rounded-full hover:bg-red-500/20 text-red-500 transition-colors cursor-pointer"
+                className="p-1.5 rounded-full hover:bg-red-500/15 text-red-500 transition-colors cursor-pointer"
                 title="Cancel Voice Note"
               >
                 <Trash2 className="w-4 h-4" />
@@ -516,7 +517,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               <button
                 type="button"
                 onClick={() => stopRecording(true)}
-                className="p-1.5 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors cursor-pointer shadow-xs active:scale-95"
+                className="p-1.5 rounded-full bg-[#007AFF] text-white hover:bg-[#0071E3] transition-all cursor-pointer shadow-sm active:scale-95"
                 title="Attach Voice Note"
               >
                 <Check className="w-4 h-4 stroke-[3]" />
@@ -593,8 +594,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             disabled={disabled || isSending || isProcessingFile}
             className={`w-9 h-9 rounded-full flex items-center justify-center select-none shrink-0 transition-all duration-150 cursor-pointer shadow-xs active:scale-90 ${
               isDarkMode
-                ? 'bg-[#1c1c1e] hover:bg-[#2c2c2e] border border-white/10 text-red-400 hover:text-red-300'
-                : 'bg-neutral-100 hover:bg-neutral-200 border border-black/5 text-red-500 hover:text-red-600'
+                ? 'bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-[#007AFF] hover:text-blue-400'
+                : 'bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#007AFF] hover:text-[#0071E3]'
             }`}
             title="Record Voice Note"
             aria-label="Record Voice Note"

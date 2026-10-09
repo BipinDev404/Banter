@@ -238,7 +238,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         isDarkMode ? 'bg-black text-white' : 'bg-[#F2F2F7] text-neutral-900'
       }`}
     >
-      <div className="max-w-3xl mx-auto w-full flex flex-col space-y-1 min-h-full">
+      <div className="max-w-3xl mx-auto w-full flex flex-col min-h-full">
         {/* Top Activity Banner: Apple notification capsule */}
         {activeNotice && (
           <div className="sticky top-1 z-20 flex justify-center pb-2 pointer-events-none select-none">
@@ -298,73 +298,75 @@ export const MessageList: React.FC<MessageListProps> = ({
             </p>
           </div>
         ) : (
-          <AnimatePresence initial={false}>
-            {safeMessages.map((msg, index) => {
-              if (!msg) return null;
-              const prevMsg = index > 0 ? safeMessages[index - 1] : null;
+          <div className="flex-1 flex flex-col justify-end space-y-1 mt-auto">
+            <AnimatePresence initial={false}>
+              {safeMessages.map((msg, index) => {
+                if (!msg) return null;
+                const prevMsg = index > 0 ? safeMessages[index - 1] : null;
 
-              const showDateDivider =
-                !prevMsg ||
-                Math.abs((msg.createdAt || 0) - (prevMsg?.createdAt || 0)) > 30 * 60 * 1000;
+                const showDateDivider =
+                  !prevMsg ||
+                  Math.abs((msg.createdAt || 0) - (prevMsg?.createdAt || 0)) > 30 * 60 * 1000;
 
-              return (
-                <React.Fragment key={msg.id || index}>
-                  {showDateDivider && msg.createdAt && (
+                return (
+                  <React.Fragment key={msg.id || index}>
+                    {showDateDivider && msg.createdAt && (
+                      <motion.div
+                        layout="position"
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ type: 'spring', damping: 26, stiffness: 380 }}
+                        className="flex justify-center my-4 select-none"
+                        style={{ willChange: 'transform, opacity' }}
+                      >
+                        <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                          {formatDividerDate(msg.createdAt)}
+                        </span>
+                      </motion.div>
+                    )}
+
                     <motion.div
-                      layout="position"
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -8 }}
-                      transition={{ type: 'spring', damping: 26, stiffness: 380 }}
-                      className="flex justify-center my-4 select-none"
+                      layout
+                      initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.96, y: -12 }}
+                      transition={{
+                        layout: { type: 'spring', damping: 28, stiffness: 380 },
+                        opacity: { duration: 0.18, ease: 'easeOut' },
+                        scale: { type: 'spring', damping: 24, stiffness: 380 },
+                        y: { type: 'spring', damping: 24, stiffness: 380 },
+                      }}
                       style={{ willChange: 'transform, opacity' }}
                     >
-                      <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-                        {formatDividerDate(msg.createdAt)}
-                      </span>
+                      <MessageBubble
+                        message={msg}
+                        isSelf={msg.userId === currentUserId}
+                        themeAccent="blue"
+                        onReact={(msgId, emoji) => {
+                          onReact(msgId, emoji);
+                          setActiveReactionMsgId(null);
+                        }}
+                        onReplyTo={(userName, textSnippet) => {
+                          onReplyTo(userName, textSnippet);
+                          setActiveReactionMsgId(null);
+                        }}
+                        onOpenImage={onOpenImage}
+                        onOpenActionsModal={onOpenActionsModal}
+                        isDarkMode={isDarkMode}
+                        allParticipantNames={participantNames}
+                        showTapbackPicker={activeReactionMsgId === msg.id}
+                        onToggleTapbackPicker={() => {
+                          setActiveReactionMsgId((prev) => (prev === msg.id ? null : msg.id));
+                        }}
+                        onCloseTapbackPicker={() => setActiveReactionMsgId(null)}
+                      />
                     </motion.div>
-                  )}
-
-                  <motion.div
-                    layout
-                    initial={{ opacity: 0, y: 16, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.96, y: -12 }}
-                    transition={{
-                      layout: { type: 'spring', damping: 28, stiffness: 380 },
-                      opacity: { duration: 0.18, ease: 'easeOut' },
-                      scale: { type: 'spring', damping: 24, stiffness: 380 },
-                      y: { type: 'spring', damping: 24, stiffness: 380 },
-                    }}
-                    style={{ willChange: 'transform, opacity' }}
-                  >
-                    <MessageBubble
-                      message={msg}
-                      isSelf={msg.userId === currentUserId}
-                      themeAccent="blue"
-                      onReact={(msgId, emoji) => {
-                        onReact(msgId, emoji);
-                        setActiveReactionMsgId(null);
-                      }}
-                      onReplyTo={(userName, textSnippet) => {
-                        onReplyTo(userName, textSnippet);
-                        setActiveReactionMsgId(null);
-                      }}
-                      onOpenImage={onOpenImage}
-                      onOpenActionsModal={onOpenActionsModal}
-                      isDarkMode={isDarkMode}
-                      allParticipantNames={participantNames}
-                      showTapbackPicker={activeReactionMsgId === msg.id}
-                      onToggleTapbackPicker={() => {
-                        setActiveReactionMsgId((prev) => (prev === msg.id ? null : msg.id));
-                      }}
-                      onCloseTapbackPicker={() => setActiveReactionMsgId(null)}
-                    />
-                  </motion.div>
-                </React.Fragment>
-              );
-            })}
-          </AnimatePresence>
+                  </React.Fragment>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         )}
 
         <TypingIndicator typingUsers={typingUsers} isDarkMode={isDarkMode} />
