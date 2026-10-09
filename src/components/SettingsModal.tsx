@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, User, Clock } from 'lucide-react';
+import { X, Check, User, Clock, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
 import { getAvatarForUser } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
 import { AppSettings } from '../lib/settings';
@@ -10,7 +10,7 @@ interface SettingsModalProps {
   onClose: () => void;
   currentName: string;
   onSaveName: (newName: string, newAvatarId?: string) => void;
-  onClearData: () => void;
+  onClearData: () => Promise<void> | void;
   settings: AppSettings;
   onUpdateSettings?: (newSettings: AppSettings) => void;
   isDarkMode?: boolean;
@@ -30,12 +30,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [nameInput, setNameInput] = useState(currentName);
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setNameInput(currentName);
       setError(null);
       setSaveSuccess(false);
+      setShowResetConfirm(false);
+      setIsResetting(false);
     }
   }, [isOpen, currentName]);
 
@@ -197,16 +201,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </form>
 
-              {/* Reset Session Option */}
-              <div className={`pt-3 border-t flex items-center justify-between ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
-                <span className="text-xs text-neutral-500">Need to reset session?</span>
-                <button
-                  type="button"
-                  onClick={onClearData}
-                  className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors cursor-pointer py-1.5 px-2.5 rounded-xl hover:bg-red-500/10 active:scale-95"
-                >
-                  Reset Session
-                </button>
+              {/* Reset Session Option with Double Confirmation */}
+              <div className={`pt-3 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
+                {!showResetConfirm ? (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-neutral-500">Need to reset session?</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowResetConfirm(true)}
+                      className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors cursor-pointer py-1.5 px-2.5 rounded-xl hover:bg-red-500/10 active:scale-95"
+                    >
+                      Reset Session
+                    </button>
+                  </div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className={`p-4 rounded-2xl border ${
+                      isDarkMode
+                        ? 'bg-red-500/10 border-red-500/30 text-white'
+                        : 'bg-red-50 border-red-200 text-neutral-900'
+                    } text-left space-y-3`}
+                  >
+                    <div className="flex items-center gap-2 text-red-500 font-extrabold text-sm">
+                      <AlertTriangle className="w-4 h-4 shrink-0 stroke-[2.2]" />
+                      <span>Confirm Session & Message Deletion</span>
+                    </div>
+
+                    <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-red-200/90' : 'text-red-900'}`}>
+                      Are you sure you want to reset your session? This action will permanently{' '}
+                      <strong>delete all messages sent by you</strong> across all chats (Global, Direct, and Group chats) and reset your user session.
+                    </p>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={isResetting}
+                        onClick={async () => {
+                          setIsResetting(true);
+                          try {
+                            await onClearData();
+                          } finally {
+                            setIsResetting(false);
+                            setShowResetConfirm(false);
+                          }
+                        }}
+                        className="flex-1 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-500 active:scale-95 disabled:opacity-50 text-white font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-red-600/30"
+                      >
+                        {isResetting ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Deleting & Resetting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
+                            <span>Yes, Delete My Messages & Reset</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isResetting}
+                        onClick={() => setShowResetConfirm(false)}
+                        className={`py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                          isDarkMode
+                            ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
+                            : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-700'
+                        }`}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </div>
           </motion.div>

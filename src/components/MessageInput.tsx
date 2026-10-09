@@ -220,7 +220,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmed = text.trim();
-    if ((!trimmed && !pendingAttachment) || isSending || disabled || isProcessingFile) return;
+    const currentAttachment = pendingAttachment;
+    if ((!trimmed && !currentAttachment) || isSending || disabled || isProcessingFile) return;
+
+    // Immediately clear input, reply, and attachment for 0ms instant response
+    setText('');
+    setPendingAttachment(null);
+    setFileError(null);
+    if (onStopTyping) onStopTyping();
+    if (onClearReply) onClearReply();
 
     // Ensure input keeps focus before async dispatch so mobile keyboard doesn't hide
     inputRef.current?.focus();
@@ -230,15 +238,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       : undefined;
 
     setIsSending(true);
-    const success = await onSendMessage(trimmed, pendingAttachment || undefined, replyData);
+    const success = await onSendMessage(trimmed, currentAttachment || undefined, replyData);
     setIsSending(false);
 
-    if (success) {
-      setText('');
-      setPendingAttachment(null);
-      setFileError(null);
-      if (onStopTyping) onStopTyping();
-      if (onClearReply) onClearReply();
+    if (!success) {
+      // If message failed to send, restore text and attachment
+      setText(trimmed);
+      if (currentAttachment) setPendingAttachment(currentAttachment);
+    } else {
       // Keep focus on input so keyboard stays visible for consecutive messages
       inputRef.current?.focus();
       requestAnimationFrame(() => {

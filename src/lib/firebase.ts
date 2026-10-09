@@ -4,6 +4,11 @@ import {
   getFirestore,
   doc,
   getDocFromServer,
+  collection,
+  getDocs,
+  deleteDoc,
+  query,
+  where,
 } from 'firebase/firestore';
 
 // Safely load local firebase-applet-config.json if present without throwing build errors on Vercel
@@ -150,5 +155,22 @@ export function clearLocalData(): void {
     sessionStorage.removeItem('banter_tab_session_id');
   } catch (e) {
     console.error('Failed to clear local data', e);
+  }
+}
+
+// Delete only the messages sent by the specific user across global, direct, and group message collections
+export async function deleteUserChatMessages(userId: string): Promise<void> {
+  if (!userId) return;
+  const collectionsToClear = ['messages', 'private_messages', 'group_messages'];
+  for (const colName of collectionsToClear) {
+    try {
+      const q = query(collection(db, colName), where('userId', '==', userId));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        await Promise.all(snap.docs.map((docSnap) => deleteDoc(docSnap.ref)));
+      }
+    } catch (e) {
+      console.error(`Failed to delete user messages in ${colName}:`, e);
+    }
   }
 }

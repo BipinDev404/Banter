@@ -10,6 +10,7 @@ import {
   saveUserName,
   clearLocalData,
   testConnection,
+  deleteUserChatMessages,
   db,
 } from '@/lib/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
@@ -289,7 +290,13 @@ export default function App() {
     }
   };
 
-  const handleClearData = () => {
+  const handleClearData = async () => {
+    try {
+      // 1. Delete ONLY messages sent by this current user session across global, private, and group chats
+      await deleteUserChatMessages(sessionId);
+    } catch (e) {
+      console.error('Error deleting user chat messages on session reset:', e);
+    }
     try {
       deleteDoc(doc(db, 'presence', sessionId)).catch(() => {});
     } catch (e) {
