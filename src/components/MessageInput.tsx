@@ -592,11 +592,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             type="button"
             onClick={startRecording}
             disabled={disabled || isSending || isProcessingFile}
-            className={`w-9 h-9 rounded-full flex items-center justify-center select-none shrink-0 transition-all duration-150 cursor-pointer shadow-xs active:scale-90 ${
+            className={`w-9 h-9 rounded-full flex items-center justify-center select-none shrink-0 transition-all duration-150 cursor-pointer shadow-xs active:scale-90 border ${
               isDarkMode
-                ? 'bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-[#007AFF] hover:text-blue-400'
-                : 'bg-blue-50 hover:bg-blue-100 border border-blue-200 text-[#007AFF] hover:text-[#0071E3]'
-            }`}
+                ? 'bg-[#1c1c1e] hover:bg-[#2c2c2e] border-white/10 text-neutral-300 hover:text-white'
+                : 'bg-neutral-100 hover:bg-neutral-200 border-black/5 text-neutral-700 hover:text-black'
+            } disabled:opacity-40`}
             title="Record Voice Note"
             aria-label="Record Voice Note"
           >

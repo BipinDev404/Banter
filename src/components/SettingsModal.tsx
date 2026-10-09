@@ -166,14 +166,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {error && <p className="mt-1.5 text-xs text-red-400 font-medium ml-0.5">{error}</p>}
                 </div>
 
-                {/* Permission Banner */}
-                <div className={`p-3 rounded-2xl border text-xs leading-relaxed ${
-                  isDarkMode ? 'bg-white/[0.03] border-white/10 text-neutral-300' : 'bg-neutral-100 border-black/5 text-neutral-600'
-                }`}>
-                  <span className="font-bold text-[#007AFF] block mb-0.5">Permission Settings</span>
-                  Username permission is enabled for editing. Avatar and other system preferences are set to default.
-                </div>
-
                 {/* 2-Hour Auto-Purge Notice */}
                 <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2.5">
                   <Clock className="w-4 h-4 text-amber-400 shrink-0 stroke-[2.2]" />

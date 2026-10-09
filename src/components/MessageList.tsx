@@ -284,19 +284,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
         {/* Empty State when no messages exist */}
         {safeMessages.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center my-auto py-16 text-center select-none">
-            <div className={`w-14 h-14 rounded-2xl border flex items-center justify-center mb-3 ${
-              isDarkMode ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/5'
-            }`}>
-              <BanterLogo className="w-8 h-8 drop-shadow-sm" />
-            </div>
-            <h3 className="text-base font-semibold">
-              No messages yet
-            </h3>
-            <p className="text-xs text-neutral-400 mt-1 max-w-xs">
-              Send a message below to start the conversation!
-            </p>
-          </div>
+          <div className="flex-1" />
         ) : (
           <div className="flex-1 flex flex-col justify-end space-y-1 mt-auto">
             <AnimatePresence initial={false}>

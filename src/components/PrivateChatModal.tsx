@@ -190,17 +190,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 flex flex-col">
           <div className="min-h-full flex flex-col justify-end space-y-3">
             {messages.length === 0 ? (
-              <div className="my-auto flex flex-col items-center justify-center text-center p-6 text-neutral-400">
-                <div className="w-14 h-14 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-3">
-                  <MessageSquare className="w-7 h-7 stroke-[2]" />
-                </div>
-                <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
-                  Chat Connected
-                </p>
-                <p className="text-xs text-neutral-400 max-w-xs">
-                  Messages sent here are visible only to you and {room.partnerName}.
-                </p>
-              </div>
+              <div className="flex-1" />
             ) : (
               <div className="mt-auto flex flex-col space-y-3">
                 {messages.map((msg) => (
