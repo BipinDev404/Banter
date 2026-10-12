@@ -1,9 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, User, Clock, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import { X, Check, User, Clock, AlertTriangle, Trash2, Loader2, Bell, Volume2, Smartphone, Sparkles, Send } from 'lucide-react';
 import { getAvatarForUser } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
 import { AppSettings } from '../lib/settings';
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  isNotificationSupported,
+  playNotificationChime,
+  triggerNotificationVibrate,
+  sendSystemNotification,
+  triggerTestNotification,
+} from '../lib/notifications';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -33,6 +42,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
+  const [permissionState, setPermissionState] = useState<NotificationPermission>(getNotificationPermission());
+  const [testNotificationSent, setTestNotificationSent] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       setNameInput(currentName);
@@ -40,8 +52,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setSaveSuccess(false);
       setShowResetConfirm(false);
       setIsResetting(false);
+      setPermissionState(getNotificationPermission());
     }
   }, [isOpen, currentName]);
+
+  const handleRequestPermission = async () => {
+    const res = await requestNotificationPermission();
+    setPermissionState(res);
+    if (res === 'granted' && onUpdateSettings) {
+      onUpdateSettings({ ...settings, systemNotificationsEnabled: true });
+    }
+  };
+
+  const [testSentType, setTestSentType] = useState<'friend' | 'banter' | null>(null);
+
+  const handleTestFriendAlert = async () => {
+    setTestSentType('friend');
+    await triggerTestNotification('friend');
+    setTimeout(() => setTestSentType(null), 2500);
+  };
+
+  const handleTestBanterAlert = async () => {
+    setTestSentType('banter');
+    await triggerTestNotification('banter');
+    setTimeout(() => setTestSentType(null), 2500);
+  };
 
   const handleSaveProfile = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -182,6 +217,173 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span className={isDarkMode ? 'text-amber-200/80' : 'text-amber-800'}>
                       Messages and chat history automatically vanish after 2 hours.
                     </span>
+                  </div>
+                </div>
+
+                {/* Notifications & Mobile Alerts Section */}
+                <div className={`p-4 rounded-2xl border space-y-3.5 ${
+                  isDarkMode ? 'bg-[#2c2c2e]/60 border-white/10' : 'bg-neutral-50 border-black/5'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-[#007AFF] stroke-[2.2]" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                        Device & Mobile Notifications
+                      </span>
+                    </div>
+
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      permissionState === 'granted'
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                    }`}>
+                      {permissionState === 'granted' ? 'Alerts Active' : 'Permission Required'}
+                    </span>
+                  </div>
+
+                  {/* Informational Cards explaining notification modes */}
+                  <div className={`p-2.5 rounded-xl text-[11px] space-y-1.5 border ${
+                    isDarkMode ? 'bg-white/[0.03] border-white/10 text-neutral-300' : 'bg-black/[0.02] border-black/5 text-neutral-700'
+                  }`}>
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-amber-400 font-bold shrink-0">🌟 Friends:</span>
+                      <span>Real message appears directly in notification.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <span className="text-[#007AFF] font-bold shrink-0">💬 Banter Chats:</span>
+                      <span>Invites you with clean grammar when conversations are buzzing.</span>
+                    </div>
+                    <div className="flex items-start gap-1.5 text-neutral-400 text-[10.5px]">
+                      <span className="text-emerald-400 font-bold shrink-0">📱 Delivery:</span>
+                      <span>Works both while online inside Banter and when you exit or minimize the app.</span>
+                    </div>
+                  </div>
+
+                  {/* Dual Test Alert Buttons */}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={handleTestFriendAlert}
+                      disabled={testSentType !== null}
+                      className="flex-1 py-1.5 px-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>{testSentType === 'friend' ? 'Friend Alert Sent!' : 'Test Friend Alert'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleTestBanterAlert}
+                      disabled={testSentType !== null}
+                      className="flex-1 py-1.5 px-2 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-[#007AFF] dark:text-blue-300 text-[11px] font-bold transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                    >
+                      <Send className="w-3 h-3" />
+                      <span>{testSentType === 'banter' ? 'Banter Alert Sent!' : 'Test Banter Alert'}</span>
+                    </button>
+                  </div>
+
+                  {/* System & Mobile OS Notification Row */}
+                  <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                    <div className="flex flex-col pr-2">
+                      <span className="text-xs font-semibold">Native Device Alerts</span>
+                      <span className="text-[11px] text-neutral-400">
+                        Receive real OS notifications when friends chat or you exit
+                      </span>
+                    </div>
+
+                    {permissionState === 'granted' ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onUpdateSettings) {
+                            onUpdateSettings({
+                              ...settings,
+                              systemNotificationsEnabled: !settings.systemNotificationsEnabled,
+                            });
+                          }
+                        }}
+                        className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
+                          settings.systemNotificationsEnabled ? 'bg-[#007AFF]' : 'bg-neutral-600'
+                        }`}
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                            settings.systemNotificationsEnabled ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleRequestPermission}
+                        className="py-1 px-2.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-[11px] font-bold cursor-pointer shrink-0 transition-all active:scale-95"
+                      >
+                        Enable
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Chime Sound Row */}
+                  <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                    <div className="flex items-center gap-2">
+                      <Volume2 className="w-4 h-4 text-neutral-400" />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold">Notification Sound</span>
+                        <span className="text-[11px] text-neutral-400">Crystal Apple bell chime</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onUpdateSettings) {
+                          onUpdateSettings({
+                            ...settings,
+                            soundEnabled: !settings.soundEnabled,
+                          });
+                        }
+                      }}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
+                        settings.soundEnabled ? 'bg-[#007AFF]' : 'bg-neutral-600'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          settings.soundEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Mobile Vibration Row */}
+                  <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-neutral-400" />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-semibold">Mobile Vibration</span>
+                        <span className="text-[11px] text-neutral-400">Haptic pulse for incoming chats</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onUpdateSettings) {
+                          onUpdateSettings({
+                            ...settings,
+                            vibrationEnabled: !settings.vibrationEnabled,
+                          });
+                        }
+                      }}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
+                        settings.vibrationEnabled ? 'bg-[#007AFF]' : 'bg-neutral-600'
+                      }`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          settings.vibrationEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 

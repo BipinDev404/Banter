@@ -33,6 +33,14 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
   const [privateMessages, setPrivateMessages] = useState<ChatMessage[]>([]);
   const [loadingPrivate, setLoadingPrivate] = useState<boolean>(false);
   const [privateError, setPrivateError] = useState<string | null>(null);
+  const [latestIncomingPrivateMessage, setLatestIncomingPrivateMessage] = useState<{
+    message: ChatMessage;
+    partnerSessionId: string;
+    partnerName: string;
+    partnerAvatarId?: string;
+  } | null>(null);
+
+  const initialPrivateLoadRef = useRef(true);
 
   // Helper to generate deterministic private room ID from two session IDs
   const getRoomId = (idA: string, idB: string) => {
@@ -71,6 +79,62 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
       },
       (err) => {
         console.error('Incoming private requests error:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [enabled, sessionId]);
+
+  // 1b. Listen for INCOMING private messages addressed to current user in real time
+  useEffect(() => {
+    if (!enabled || !sessionId) return;
+
+    const messagesCol = collection(db, 'private_messages');
+    const q = query(
+      messagesCol,
+      where('targetSessionId', '==', sessionId)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        if (initialPrivateLoadRef.current) {
+          initialPrivateLoadRef.current = false;
+          return;
+        }
+
+        const now = Date.now();
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            const timestamp = data.createdAt?.toMillis ? data.createdAt.toMillis() : now;
+
+            // Only notify if message is recent (< 25s) and not from current user
+            if (now - timestamp < 25000 && data.userId !== sessionId) {
+              const incomingMsg: ChatMessage = {
+                id: change.doc.id,
+                userId: data.userId || 'anon',
+                userName: data.userName || 'Anonymous',
+                message: data.message || '',
+                createdAt: timestamp,
+                attachment: data.attachment || undefined,
+                avatarId: data.avatarId || undefined,
+                reactions: Array.isArray(data.reactions) ? data.reactions : [],
+                replyTo: data.replyTo || undefined,
+              };
+
+              setLatestIncomingPrivateMessage({
+                message: incomingMsg,
+                partnerSessionId: data.userId,
+                partnerName: data.userName,
+                partnerAvatarId: data.avatarId,
+              });
+            }
+          }
+        });
+      },
+      (err) => {
+        console.warn('Background private messages listener issue:', err);
       }
     );
 
@@ -290,6 +354,7 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
           roomId: activePrivateChat.roomId,
           userId: sessionId,
           userName: userName.slice(0, 20),
+          targetSessionId: activePrivateChat.partnerSessionId,
           message: trimmed,
           createdAt: serverTimestamp(),
         };
@@ -380,6 +445,8 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
     togglePrivateReaction,
     editPrivateMessage,
     deletePrivateMessage,
+    latestIncomingPrivateMessage,
+    clearLatestIncomingPrivateMessage: () => setLatestIncomingPrivateMessage(null),
     clearPrivateError: () => setPrivateError(null),
   };
 }

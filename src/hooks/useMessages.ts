@@ -21,6 +21,7 @@ interface UseMessagesProps {
   enabled: boolean;
   otherUsers?: ActiveUserReader[];
   onViewLoaded?: () => void;
+  onNewMessage?: (msg: ChatMessage) => void;
 }
 
 // 2 hours automatic message expiration cutoff
@@ -33,8 +34,12 @@ export function useMessages({
   enabled,
   otherUsers = [],
   onViewLoaded,
+  onNewMessage,
 }: UseMessagesProps) {
   const [firestoreMessages, setFirestoreMessages] = useState<ChatMessage[]>([]);
+  const initialLoadDoneRef = useRef(false);
+  const onNewMessageRef = useRef(onNewMessage);
+  onNewMessageRef.current = onNewMessage;
   const [messageLimit, setMessageLimit] = useState<number>(50);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -146,6 +151,30 @@ export function useMessages({
         setLoading(false);
         setErrorMessage(null);
         onViewLoaded?.();
+
+        // Notify on new real-time messages from other users
+        if (initialLoadDoneRef.current && onNewMessageRef.current) {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const data = change.doc.data();
+              const timestamp = data.createdAt?.toMillis ? data.createdAt.toMillis() : now;
+              if (now - timestamp < 20000 && data.userId !== userId) {
+                onNewMessageRef.current?.({
+                  id: change.doc.id,
+                  userId: data.userId || 'anon',
+                  userName: data.userName || 'Anonymous',
+                  message: data.message || '',
+                  createdAt: timestamp,
+                  attachment: data.attachment || undefined,
+                  avatarId: data.avatarId || undefined,
+                  reactions: Array.isArray(data.reactions) ? data.reactions : [],
+                  replyTo: data.replyTo || undefined,
+                });
+              }
+            }
+          });
+        }
+        initialLoadDoneRef.current = true;
       },
       (error) => {
         setLoading(false);

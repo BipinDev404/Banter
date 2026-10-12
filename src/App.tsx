@@ -35,11 +35,23 @@ import {
   MessageActionsModal,
   PrivateChatConfirmationModal,
   FriendAlertModal,
+  NotificationBanner,
+  NotificationPermissionPrompt,
+  InAppPushNotification,
 } from '@/components';
 import { FriendAlertData } from '@/components/FriendAlertModal';
 import { ChatMessage, GroupItem } from '@/types';
 import { playMessagePopSound } from '@/lib/sound';
 import { AppSettings, loadSavedSettings, saveSettings, getFontOption } from '@/lib/settings';
+import {
+  playNotificationChime,
+  triggerNotificationVibrate,
+  sendSystemNotification,
+  flashTabTitleAlert,
+  clearTabTitleAlert,
+  formatMessageNotification,
+  registerServiceWorker,
+} from '@/lib/notifications';
 
 export default function App() {
   const [userName, setUserName] = useState<string>(() => getSavedUserName());
@@ -89,9 +101,15 @@ export default function App() {
   // Unique session ID for this browser tab
   const sessionId = useMemo(() => getSessionId(), []);
 
-  // Connection test on boot
+  const [pushNotification, setPushNotification] = useState<InAppPushNotification | null>(null);
+  const friendsRef = useRef<any[]>([]);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  // Connection test and service worker on boot
   useEffect(() => {
     testConnection();
+    registerServiceWorker().catch(() => {});
 
     const handleDblClick = (e: MouseEvent) => {
       e.preventDefault();
@@ -99,6 +117,98 @@ export default function App() {
     window.addEventListener('dblclick', handleDblClick);
     return () => window.removeEventListener('dblclick', handleDblClick);
   }, []);
+
+  // Clear tab title flashing on window focus
+  useEffect(() => {
+    const handleFocus = () => {
+      clearTabTitleAlert();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  // Unified Notification Engine for Real Messages, Friends, and Direct Chats
+  const triggerChatAlert = useCallback(
+    (
+      msg: ChatMessage,
+      context?: {
+        isDirect?: boolean;
+        partnerName?: string;
+        groupName?: string;
+        onAction?: () => void;
+      }
+    ) => {
+      if (msg.userId === sessionId) return;
+
+      const currentSettings = settingsRef.current;
+      const currentFriends = friendsRef.current;
+      const isSenderFriend = currentFriends.some((f) => f.sessionId === msg.userId);
+
+      // Check friends-only notification preference
+      if (currentSettings.friendsOnlyNotifications && !isSenderFriend && !context?.isDirect) {
+        return;
+      }
+
+      const { title, body, tag } = formatMessageNotification(
+        msg,
+        sessionId,
+        isSenderFriend,
+        context
+      );
+
+      // 1. Play crystal audio chime if enabled
+      if (currentSettings.soundEnabled) {
+        playNotificationChime(context?.isDirect || isSenderFriend ? 'direct' : 'message');
+      }
+
+      // 2. Trigger mobile haptic vibration if enabled
+      if (currentSettings.vibrationEnabled) {
+        triggerNotificationVibrate(context?.isDirect || isSenderFriend ? 'direct' : 'message');
+      }
+
+      // 3. If user is in another tab or minimized ("exist the app"), flash title & send system notification
+      if (typeof document !== 'undefined' && document.hidden) {
+        flashTabTitleAlert(msg.userName, body);
+        if (currentSettings.systemNotificationsEnabled) {
+          sendSystemNotification({
+            title,
+            body,
+            tag,
+            onClick: () => {
+              window.focus();
+              context?.onAction?.();
+            },
+          });
+        }
+      } else {
+        // User is currently viewing the app: show in-app push banner
+        setPushNotification({
+          id: msg.id + '_' + Date.now(),
+          title,
+          body,
+          userName: msg.userName,
+          avatarId: msg.avatarId,
+          isFriend: isSenderFriend,
+          type: context?.isDirect ? 'direct' : 'message',
+          onAction: context?.onAction,
+        });
+
+        // Also dispatch system notification if enabled
+        if (currentSettings.systemNotificationsEnabled) {
+          sendSystemNotification({
+            title,
+            body,
+            tag,
+            onClick: () => {
+              window.focus();
+              context?.onAction?.();
+            },
+          });
+        }
+      }
+    },
+    [sessionId]
+  );
 
   // Presence hook with custom Apple vector avatar synchronization
   const { onlineCount, notifications, otherUsers, onlineUsers, markViewLoaded } = usePresence({
@@ -128,6 +238,9 @@ export default function App() {
     enabled: isEntered,
     otherUsers,
     onViewLoaded: markViewLoaded,
+    onNewMessage: (msg) => {
+      triggerChatAlert(msg);
+    },
   });
 
   // Real-time typing status hook
@@ -151,6 +264,8 @@ export default function App() {
     togglePrivateReaction,
     editPrivateMessage,
     deletePrivateMessage,
+    latestIncomingPrivateMessage,
+    clearLatestIncomingPrivateMessage,
   } = usePrivateChat({
     sessionId,
     userName,
@@ -176,6 +291,102 @@ export default function App() {
     avatarId: settings.avatarId,
     enabled: isEntered,
   });
+
+  // Keep friendsRef in sync for notification engine
+  friendsRef.current = friends;
+
+  // Real-time alert for incoming direct private messages
+  useEffect(() => {
+    if (!latestIncomingPrivateMessage) return;
+    const { message, partnerSessionId, partnerName, partnerAvatarId } = latestIncomingPrivateMessage;
+
+    // Skip if active private room is already open with this partner
+    if (activePrivateChat && activePrivateChat.partnerSessionId === partnerSessionId) {
+      clearLatestIncomingPrivateMessage();
+      return;
+    }
+
+    triggerChatAlert(message, {
+      isDirect: true,
+      partnerName,
+      onAction: () => {
+        openDirectChat(partnerSessionId, partnerName, partnerAvatarId);
+      },
+    });
+    clearLatestIncomingPrivateMessage();
+  }, [
+    latestIncomingPrivateMessage,
+    activePrivateChat,
+    triggerChatAlert,
+    openDirectChat,
+    clearLatestIncomingPrivateMessage,
+  ]);
+
+  // Alert for incoming friend requests with real sound, vibration, and system notification
+  const prevIncomingReqCountRef = useRef(0);
+  useEffect(() => {
+    if (!isEntered) return;
+    if (incomingRequests.length > prevIncomingReqCountRef.current) {
+      const latest = incomingRequests[0];
+      if (latest && !dismissedRequestsRef.current.has(latest.id)) {
+        if (settings.soundEnabled) playNotificationChime('friend_request');
+        if (settings.vibrationEnabled) triggerNotificationVibrate('friend_request');
+
+        if (document.hidden) {
+          flashTabTitleAlert(latest.fromUserName, 'Sent you a friend request');
+          if (settings.systemNotificationsEnabled) {
+            sendSystemNotification({
+              title: `👋 ${latest.fromUserName} • Friend Request`,
+              body: `${latest.fromUserName} wants to connect with you on Banter!`,
+              tag: `freq_${latest.id}`,
+              onClick: () => {
+                window.focus();
+                setIsFriendsOpen(true);
+              },
+            });
+          }
+        } else {
+          setPushNotification({
+            id: 'freq_' + latest.id,
+            title: 'Friend Request',
+            body: `${latest.fromUserName} wants to be friends on Banter!`,
+            userName: latest.fromUserName,
+            avatarId: latest.fromAvatarId,
+            type: 'friend_request',
+            onAction: () => {
+              setIsFriendsOpen(true);
+            },
+          });
+        }
+      }
+    }
+    prevIncomingReqCountRef.current = incomingRequests.length;
+  }, [incomingRequests, isEntered, settings]);
+
+  // Alert for incoming 1-on-1 private chat request
+  const prevChatReqIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isEntered || !incomingRequest) return;
+    if (incomingRequest.id !== prevChatReqIdRef.current) {
+      prevChatReqIdRef.current = incomingRequest.id;
+      if (settings.soundEnabled) playNotificationChime('friend_request');
+      if (settings.vibrationEnabled) triggerNotificationVibrate('friend_request');
+
+      if (document.hidden) {
+        flashTabTitleAlert(incomingRequest.fromUserName, 'Started a private chat');
+        if (settings.systemNotificationsEnabled) {
+          sendSystemNotification({
+            title: `💬 ${incomingRequest.fromUserName} • Private Chat Request`,
+            body: `${incomingRequest.fromUserName} wants to start a 1-on-1 direct chat with you on Banter.`,
+            tag: `creq_${incomingRequest.id}`,
+            onClick: () => {
+              window.focus();
+            },
+          });
+        }
+      }
+    }
+  }, [incomingRequest, isEntered, settings]);
 
   // Prompt popup whenever an incoming friend request is detected
   useEffect(() => {
@@ -667,6 +878,16 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Real-time In-App Push Notification Banner */}
+      <NotificationBanner
+        notification={pushNotification}
+        onDismiss={() => setPushNotification(null)}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* System Notification Permission Prompt for Mobile & Desktop */}
+      <NotificationPermissionPrompt isDarkMode={isDarkMode} />
     </div>
   );
 }

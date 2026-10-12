@@ -1,5 +1,4 @@
-import React from 'react';
-import { User, MessageSquare, ArrowLeft, Users, Info, Sun, Moon } from 'lucide-react';
+import { User, MessageSquare, ArrowLeft, Users, Info, Sun, Moon, Bell } from 'lucide-react';
 import { BanterLogo } from './BanterLogo';
 import { TypingUser, PrivateChatRoom, GroupItem } from '../types';
 import { getAvatarForUser, getGroupAvatar } from '../lib/avatars';
@@ -23,6 +22,8 @@ interface ChatHeaderProps {
   activeGroup?: GroupItem | null;
   onLeaveGroupChat?: () => void;
   onOpenGroupInfo?: () => void;
+  onOpenNotifications?: () => void;
+  notificationPermission?: NotificationPermission;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -43,6 +44,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   activeGroup,
   onLeaveGroupChat,
   onOpenGroupInfo,
+  onOpenNotifications,
+  notificationPermission = 'default',
 }) => {
   const validTypingUsers = (typingUsers || []).filter(
     (u) => u && typeof u.userName === 'string' && u.userName.trim().length > 0
@@ -263,6 +266,32 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <Users className="w-4 h-4 stroke-[2.2]" />
             {pendingRequestsCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-black animate-pulse" />
+            )}
+          </button>
+        )}
+
+        {/* Mobile & Desktop OS Notification Bell */}
+        {onOpenNotifications && (
+          <button
+            type="button"
+            onClick={onOpenNotifications}
+            className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all cursor-pointer relative active:scale-95 ${
+              notificationPermission === 'granted'
+                ? isDarkMode
+                  ? 'bg-[#1c1c1e] hover:bg-[#2c2c2e] border-white/10 text-neutral-300 hover:text-white'
+                  : 'bg-neutral-100 hover:bg-neutral-200 border-black/5 text-neutral-700 hover:text-black'
+                : 'bg-blue-500/15 border-blue-500/30 text-[#007AFF] hover:bg-blue-500/25 ring-1 ring-blue-500/30'
+            }`}
+            title={
+              notificationPermission === 'granted'
+                ? 'Device Notifications: Active (Click to manage alerts or test)'
+                : 'Enable Mobile Notifications (Click to receive real alerts when friends chat or when you exit)'
+            }
+            aria-label="Manage notifications"
+          >
+            <Bell className="w-4 h-4 stroke-[2.2]" />
+            {notificationPermission !== 'granted' && (
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#007AFF] ring-2 ring-white dark:ring-black animate-pulse" />
             )}
           </button>
         )}

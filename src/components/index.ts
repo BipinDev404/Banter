@@ -19,3 +19,5 @@ export * from './SettingsModal';
 export * from './TypingIndicator';
 export * from './UserAvatar';
 export * from './WelcomeScreen';
+export * from './NotificationBanner';
+export * from './NotificationPermissionPrompt';

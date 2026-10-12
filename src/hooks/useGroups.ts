@@ -22,15 +22,19 @@ interface UseGroupsProps {
   userName: string;
   avatarId?: string;
   enabled: boolean;
+  onNewMessage?: (msg: ChatMessage, group: GroupItem) => void;
 }
 
-export function useGroups({ sessionId, userName, avatarId, enabled }: UseGroupsProps) {
+export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage }: UseGroupsProps) {
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [activeGroup, setActiveGroup] = useState<GroupItem | null>(null);
   const [groupMessages, setGroupMessages] = useState<ChatMessage[]>([]);
   const [loadingGroups, setLoadingGroups] = useState<boolean>(false);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
   const [groupNotice, setGroupNotice] = useState<string | null>(null);
+  const onNewMessageRef = useRef(onNewMessage);
+  onNewMessageRef.current = onNewMessage;
+  const groupInitialLoadRef = useRef<Record<string, boolean>>({});
 
   // 1. Listen for all groups that the current user is a member of
   useEffect(() => {
@@ -260,6 +264,34 @@ export function useGroups({ sessionId, userName, avatarId, enabled }: UseGroupsP
         loaded.reverse();
         setGroupMessages(loaded);
         setLoadingMessages(false);
+
+        // Notify on new real-time group messages
+        const isInitial = !groupInitialLoadRef.current[activeGroup.id];
+        if (!isInitial && onNewMessageRef.current) {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const data = change.doc.data();
+              const timestamp = data.createdAt?.toMillis ? data.createdAt.toMillis() : now;
+              if (now - timestamp < 20000 && data.userId !== sessionId) {
+                onNewMessageRef.current?.(
+                  {
+                    id: change.doc.id,
+                    userId: data.userId || 'anon',
+                    userName: data.userName || 'Anonymous',
+                    message: data.message || '',
+                    createdAt: timestamp,
+                    attachment: data.attachment || undefined,
+                    reactions: Array.isArray(data.reactions) ? data.reactions : [],
+                    replyTo: data.replyTo || undefined,
+                    avatarId: data.avatarId || undefined,
+                  },
+                  activeGroup
+                );
+              }
+            }
+          });
+        }
+        groupInitialLoadRef.current[activeGroup.id] = true;
       },
       (err) => {
         console.error('Group messages error:', err);
@@ -268,7 +300,7 @@ export function useGroups({ sessionId, userName, avatarId, enabled }: UseGroupsP
     );
 
     return () => unsubscribe();
-  }, [activeGroup]);
+  }, [activeGroup, sessionId]);
 
   // 7. Send message in active group
   const sendGroupMessage = useCallback(

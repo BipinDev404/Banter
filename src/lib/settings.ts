@@ -12,6 +12,9 @@ export interface AppSettings {
   chatBgPattern: ChatBgPattern;
   fontStyle: FontStyle;
   soundEnabled: boolean;
+  systemNotificationsEnabled: boolean;
+  vibrationEnabled: boolean;
+  friendsOnlyNotifications: boolean;
   messageDensity: MessageDensity;
   avatarId: string;
 }
@@ -161,6 +164,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   chatBgPattern: 'dark-oled',
   fontStyle: 'apple',
   soundEnabled: true,
+  systemNotificationsEnabled: true,
+  vibrationEnabled: true,
+  friendsOnlyNotifications: false,
   messageDensity: 'comfortable',
   avatarId: 'c_fox',
 };
