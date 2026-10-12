@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '../types';
 import { getAvatarForUser, TAPBACK_REACTIONS, renderReactionIcon } from '../lib/avatars';
+import { recordRecentEmoji } from '../lib/emojiStore';
 import { Reply, FileText, Download, Maximize2, Smile, Mic, Play, Pause, Info } from 'lucide-react';
 import { formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
@@ -485,6 +486,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const handleSelectReaction = (reactionId: string) => {
     if (!message.id) return;
+    const reactionObj = TAPBACK_REACTIONS.find((t) => t.id === reactionId);
+    if (reactionObj?.emoji) {
+      recordRecentEmoji(reactionObj.emoji);
+    } else {
+      recordRecentEmoji(reactionId);
+    }
     onReact(message.id, reactionId);
     closePicker();
   };

@@ -330,7 +330,10 @@ export const MessageActionsModal: React.FC<MessageActionsModalProps> = ({
                   </div>
 
                   {/* Emoji Grid */}
-                  <div className="grid grid-cols-7 sm:grid-cols-9 gap-1.5 max-h-44 overflow-y-auto p-1">
+                  <div
+                    className="grid grid-cols-7 sm:grid-cols-9 gap-1.5 max-h-44 overflow-y-auto p-1 no-scrollbar [&::-webkit-scrollbar]:hidden"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  >
                     {EMOJI_CATEGORIES.find((c) => c.id === selectedCategory)?.emojis.map((emoji, idx) => (
                       <button
                         key={idx}

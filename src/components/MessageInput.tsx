@@ -1,8 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowUp, X, Plus, FileText, Loader2, Reply, Mic, Trash2, Check, Smile, ThumbsUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowUp, X, Plus, FileText, Loader2, Reply, Mic, Trash2, Check, Smile } from 'lucide-react';
 import { ChatAttachment } from '../types';
 import { processImageAttachment, processFileAttachment, processAudioBlobAttachment, formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
+
+const INPUT_EMOJI_SECTIONS = [
+  {
+    title: 'Popular',
+    emojis: ['😂', '❤️', '👍', '🔥', '🎉', '👏', '🙌', '💯', '🥺', '😭', '😍', '✨'],
+  },
+  {
+    title: 'Smileys & Faces',
+    emojis: ['😊', '🥰', '😎', '🤔', '🤣', '🥳', '🤤', '😋', '😴', '🥱', '😇', '🤪', '🤠', '🤫', '🤐', '🤭', '😏', '😬'],
+  },
+  {
+    title: 'Hands & Gestures',
+    emojis: ['👍', '👎', '👏', '🙌', '🤝', '✌️', '🤞', '🤙', '👊', '✊', '🤛', '🤜', '👈', '👉', '👆', '👇', '✋', '🙏'],
+  },
+  {
+    title: 'Hearts & Vibes',
+    emojis: ['❤️', '💖', '💗', '💓', '💞', '💘', '💝', '💟', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💔', '🔥', '⭐'],
+  },
+  {
+    title: 'Celebrations & Fun',
+    emojis: ['🎉', '🎊', '🎈', '🎂', '🥂', '🍻', '🏆', '🎯', '🚀', '🍕', '🍔', '☕', '🎮', '🎵', '🎸', '🌈', '🍀', '☀️'],
+  },
+];
 
 interface MessageInputProps {
   onSendMessage: (
@@ -471,48 +495,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         </div>
       )}
 
-      {/* Floating Quick Emoji Tray */}
-      {showEmojiTray && (
-        <div className="max-w-3xl mx-auto px-4 pt-2">
-          <div
-            className={`p-2.5 rounded-2xl border flex flex-col gap-2 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-150 ${
-              isDarkMode
-                ? 'bg-[#1c1c1e]/98 border-white/10 text-white'
-                : 'bg-white/98 border-black/10 text-neutral-900 shadow-md'
-            }`}
-          >
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-1">
-                <Smile className="w-3.5 h-3.5 text-blue-500" />
-                Quick Emojis
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowEmojiTray(false)}
-                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white p-0.5 rounded-full cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
-              {['😂', '❤️', '👍', '🔥', '🎉', '👏', '🙌', '💯', '🥺', '😭', '😍', '✨', '🚀', '🙏', '🤯', '😎', '🤔', '🥳', '👀', '💖', '⭐', '☕', '🍕', '🍻'].map((emoji, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    setText((prev) => prev + emoji);
-                    inputRef.current?.focus();
-                  }}
-                  className="w-8 h-8 rounded-xl flex items-center justify-center text-lg hover:bg-black/5 dark:hover:bg-white/10 hover:scale-125 active:scale-95 transition-all cursor-pointer shrink-0"
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Main Input Form */}
       <form
         onSubmit={handleSubmit}
@@ -620,24 +602,97 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               enterKeyHint="send"
             />
 
-            {/* Quick Emoji Trigger Button */}
-            <button
-              type="button"
-              onClick={() => setShowEmojiTray((prev) => !prev)}
-              className={`p-1.5 rounded-full transition-colors cursor-pointer shrink-0 ml-1 ${
-                showEmojiTray
-                  ? 'text-[#007AFF] bg-blue-500/10'
-                  : 'text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
-              }`}
-              title="Insert Emoji"
-              aria-label="Insert Emoji"
-            >
-              <Smile className="w-5 h-5 stroke-[2]" />
-            </button>
+            {/* Quick Emoji Trigger Button & Vertical Rectangle Popover with Triangle Caret */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowEmojiTray((prev) => !prev)}
+                className={`p-1.5 rounded-full transition-colors cursor-pointer shrink-0 ml-1 ${
+                  showEmojiTray
+                    ? 'text-[#007AFF] bg-blue-500/10'
+                    : 'text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                }`}
+                title="Insert Emoji"
+                aria-label="Insert Emoji"
+              >
+                <Smile className="w-5 h-5 stroke-[2]" />
+              </button>
+
+              {/* Vertical Rectangle Emoji Popover */}
+              <AnimatePresence>
+                {showEmojiTray && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.92, y: 8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.92, y: 8 }}
+                    transition={{ duration: 0.16, ease: 'easeOut' }}
+                    className={`absolute bottom-full mb-3 -right-11 sm:-right-12 w-[270px] sm:w-[290px] h-[310px] max-w-[calc(100vw-28px)] rounded-2xl border shadow-2xl backdrop-blur-2xl flex flex-col z-50 origin-bottom-right select-none ${
+                      isDarkMode
+                        ? 'bg-[#1c1c1e]/98 border-white/15 text-white shadow-black/80'
+                        : 'bg-white/98 border-black/10 text-neutral-900 shadow-xl'
+                    }`}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-black/5 dark:border-white/10 shrink-0">
+                      <span className="text-xs font-bold flex items-center gap-1.5 text-neutral-400 uppercase tracking-wider">
+                        <Smile className="w-3.5 h-3.5 text-[#007AFF]" />
+                        Emojis
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowEmojiTray(false)}
+                        className="p-1 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {/* Scrollable Vertical Grid of Emojis with completely invisible scrollbar */}
+                    <div
+                      className="flex-1 overflow-y-auto p-2.5 space-y-3 no-scrollbar [&::-webkit-scrollbar]:hidden"
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                      {INPUT_EMOJI_SECTIONS.map((section) => (
+                        <div key={section.title} className="space-y-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block px-1">
+                            {section.title}
+                          </span>
+                          <div className="grid grid-cols-6 gap-1">
+                            {section.emojis.map((emoji, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setText((prev) => prev + emoji);
+                                  inputRef.current?.focus();
+                                }}
+                                className="w-9 h-9 rounded-xl flex items-center justify-center text-lg hover:bg-black/5 dark:hover:bg-white/10 hover:scale-125 active:scale-95 transition-all cursor-pointer"
+                                title={emoji}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Triangle pointer caret pointing directly down towards the emoji button */}
+                    <div
+                      className={`absolute -bottom-2 right-[52px] sm:right-[56px] w-4 h-4 rotate-45 border-b border-r ${
+                        isDarkMode
+                          ? 'bg-[#1c1c1e] border-white/15'
+                          : 'bg-white border-black/10'
+                      }`}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         )}
 
-        {/* Action Button: Send or Record Mic or Quick Like */}
+        {/* Action Button: Send or Record Mic (Thumb icon removed) */}
         {hasContent || isRecording ? (
           <button
             type="submit"
@@ -655,39 +710,20 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <ArrowUp className="w-5 h-5 stroke-[3]" />
           </button>
         ) : (
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Quick Like Thumbs Up */}
-            <button
-              type="button"
-              onClick={() => onSendMessage('👍')}
-              disabled={disabled || isSending || isProcessingFile}
-              className={`w-9 h-9 rounded-full flex items-center justify-center select-none shrink-0 transition-all duration-150 cursor-pointer shadow-xs active:scale-90 border ${
-                isDarkMode
-                  ? 'bg-[#1c1c1e] hover:bg-[#2c2c2e] border-white/10 text-[#007AFF]'
-                  : 'bg-neutral-100 hover:bg-neutral-200 border-black/5 text-[#007AFF]'
-              } disabled:opacity-40`}
-              title="Quick Like (👍)"
-              aria-label="Quick Like"
-            >
-              <ThumbsUp className="w-4 h-4 stroke-[2.4]" />
-            </button>
-
-            {/* Mic Voice Note Record */}
-            <button
-              type="button"
-              onClick={startRecording}
-              disabled={disabled || isSending || isProcessingFile}
-              className={`w-9 h-9 rounded-full flex items-center justify-center select-none shrink-0 transition-all duration-150 cursor-pointer shadow-xs active:scale-90 border ${
-                isDarkMode
-                  ? 'bg-[#1c1c1e] hover:bg-[#2c2c2e] border-white/10 text-neutral-300 hover:text-white'
-                  : 'bg-neutral-100 hover:bg-neutral-200 border-black/5 text-neutral-700 hover:text-black'
-              } disabled:opacity-40`}
-              title="Record Voice Note"
-              aria-label="Record Voice Note"
-            >
-              <Mic className="w-5 h-5 stroke-[2.2]" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={startRecording}
+            disabled={disabled || isSending || isProcessingFile}
+            className={`w-9 h-9 rounded-full flex items-center justify-center select-none shrink-0 transition-all duration-150 cursor-pointer shadow-xs active:scale-90 border ${
+              isDarkMode
+                ? 'bg-[#1c1c1e] hover:bg-[#2c2c2e] border-white/10 text-neutral-300 hover:text-white'
+                : 'bg-neutral-100 hover:bg-neutral-200 border-black/5 text-neutral-700 hover:text-black'
+            } disabled:opacity-40`}
+            title="Record Voice Note"
+            aria-label="Record Voice Note"
+          >
+            <Mic className="w-5 h-5 stroke-[2.2]" />
+          </button>
         )}
       </form>
     </div>

@@ -3,3 +3,4 @@ export * from './avatars';
 export * from './firebase';
 export * from './settings';
 export * from './sound';
+export * from './emojiStore';
