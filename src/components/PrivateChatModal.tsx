@@ -21,6 +21,7 @@ interface PrivateChatModalProps {
   currentUserId: string;
   currentUserName: string;
   isDarkMode?: boolean;
+  onOpenActionsModal?: (message: ChatMessage) => void;
 }
 
 export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
@@ -33,6 +34,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
   currentUserId,
   currentUserName,
   isDarkMode = false,
+  onOpenActionsModal,
 }) => {
   const [text, setText] = useState('');
   const [pendingAttachment, setPendingAttachment] = useState<ChatAttachment | null>(null);
@@ -200,6 +202,7 @@ export const PrivateChatModal: React.FC<PrivateChatModalProps> = ({
                     isSelf={msg.userId === currentUserId}
                     onReact={onReact}
                     onReplyTo={handleReplyTo}
+                    onOpenActionsModal={onOpenActionsModal}
                     isDarkMode={isDarkMode}
                   />
                 ))}

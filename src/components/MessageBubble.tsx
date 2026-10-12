@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '../types';
 import { getAvatarForUser, TAPBACK_REACTIONS, renderReactionIcon } from '../lib/avatars';
-import { Reply, FileText, Download, Maximize2, Smile, Mic, Play, Pause } from 'lucide-react';
+import { Reply, FileText, Download, Maximize2, Smile, Mic, Play, Pause, Info } from 'lucide-react';
 import { formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
 import { UserAvatar } from './UserAvatar';
@@ -284,6 +284,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const triggeredReplyRef = useRef(false);
+  const lastTouchTimeRef = useRef<number>(0);
+  const lastClickTimeRef = useRef<number>(0);
 
   if (!message) return null;
 
@@ -378,6 +380,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const handleTouchEnd = () => {
     cancelLongPress();
+    const now = Date.now();
+    if (now - lastTouchTimeRef.current < 320 && Math.abs(dragX) < 15) {
+      // Detected double tap on mobile
+      onOpenActionsModal?.(message);
+      lastTouchTimeRef.current = 0;
+      setIsDragging(false);
+      setDragX(0);
+      touchStartRef.current = null;
+      return;
+    }
+    lastTouchTimeRef.current = now;
+
     if (triggeredReplyRef.current || Math.abs(dragX) > 50) {
       onReplyTo(safeUserName, getMessageSnippet(message));
     }
@@ -419,6 +433,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 
   const handleMouseUp = () => {
     cancelLongPress();
+    const now = Date.now();
+    if (now - lastClickTimeRef.current < 320 && Math.abs(dragX) < 10) {
+      // Detected double click on mouse
+      onOpenActionsModal?.(message);
+      lastClickTimeRef.current = 0;
+    } else {
+      lastClickTimeRef.current = now;
+    }
+
     if (triggeredReplyRef.current || Math.abs(dragX) > 50) {
       onReplyTo(safeUserName, getMessageSnippet(message));
     }
@@ -601,20 +624,46 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </div>
             )}
 
-            {/* Smile Trigger Button */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                togglePicker();
-              }}
-              className={`absolute -left-8 top-1.5 p-1 rounded-full text-neutral-400 hover:text-blue-500 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
-                showTapbackPicker ? 'opacity-100 text-blue-500' : 'opacity-0 group-hover:opacity-100'
+            {/* Action Buttons: Info (i) & Quick Reaction (Smile) */}
+            <div
+              className={`absolute -left-16 sm:-left-20 top-1.5 flex items-center gap-1 z-20 transition-all duration-150 ${
+                showTapbackPicker
+                  ? 'opacity-100 scale-100'
+                  : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100 scale-95 group-hover:scale-100'
               }`}
-              title="React or reply"
             >
-              <Smile className="w-4 h-4" />
-            </button>
+              {/* Info 'i' Button to show all features (Delete, Rename, Emojis, Details) */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenActionsModal?.(message);
+                }}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-neutral-400 hover:text-white bg-black/35 hover:bg-black/60 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-md transition-all cursor-pointer shadow-xs active:scale-90"
+                title="Message info & features (i) - Delete, Rename, Emojis..."
+                aria-label="Message options and info"
+              >
+                <Info className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+
+              {/* Smile / Emoji Reaction Trigger Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePicker();
+                }}
+                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 ${
+                  showTapbackPicker
+                    ? 'bg-[#007AFF] text-white'
+                    : 'text-neutral-400 hover:text-white bg-black/35 hover:bg-black/60 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-md'
+                }`}
+                title="React with emojis"
+                aria-label="React with emojis"
+              >
+                <Smile className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
             {/* Sent Bubble Container with Apple Geometry & Inner Border */}
             <div
@@ -757,20 +806,46 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </div>
               )}
 
-              {/* Action Smile Trigger Button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  togglePicker();
-                }}
-                className={`absolute -right-8 top-6 p-1 rounded-full text-neutral-400 hover:text-blue-500 hover:bg-black/5 dark:hover:bg-white/10 transition-all cursor-pointer ${
-                  showTapbackPicker ? 'opacity-100 text-blue-500' : 'opacity-0 group-hover:opacity-100'
+              {/* Action Buttons: Emoji Icon and Info (i) Icon Right Beside It */}
+              <div
+                className={`absolute -right-16 sm:-right-20 top-6 flex items-center gap-1 z-20 transition-all duration-150 ${
+                  showTapbackPicker
+                    ? 'opacity-100 scale-100'
+                    : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100 scale-95 group-hover:scale-100'
                 }`}
-                title="React or reply"
               >
-                <Smile className="w-4 h-4" />
-              </button>
+                {/* Emoji Reaction Trigger Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePicker();
+                  }}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 ${
+                    showTapbackPicker
+                      ? 'bg-[#007AFF] text-white'
+                      : 'text-neutral-400 hover:text-neutral-900 dark:hover:text-white bg-black/5 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-md'
+                  }`}
+                  title="React with emojis"
+                  aria-label="React with emojis"
+                >
+                  <Smile className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Info (i) Button Right Beside Emoji Icon */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenActionsModal?.(message);
+                  }}
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-neutral-400 hover:text-neutral-900 dark:hover:text-white bg-black/5 hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/20 backdrop-blur-md transition-all cursor-pointer shadow-xs active:scale-90"
+                  title="Message options & features (i) - Delete, Rename, Emojis..."
+                  aria-label="Message options and info"
+                >
+                  <Info className="w-3.5 h-3.5 stroke-[2.5]" />
+                </button>
+              </div>
 
               {/* Bubble Container with Apple Neutral Glass */}
               <div

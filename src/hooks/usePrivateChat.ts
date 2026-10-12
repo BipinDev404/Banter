@@ -333,6 +333,37 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
     });
   }, []);
 
+  // 10. Edit/Rename an existing private message
+  const editPrivateMessage = useCallback(async (messageId: string, newText: string): Promise<boolean> => {
+    const trimmed = newText.trim();
+    if (!trimmed) return false;
+
+    setPrivateMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, message: trimmed } : m))
+    );
+
+    try {
+      await setDoc(doc(db, 'private_messages', messageId), { message: trimmed }, { merge: true });
+      return true;
+    } catch (err) {
+      console.error('Error editing private message:', err);
+      return false;
+    }
+  }, []);
+
+  // 11. Delete an existing private message
+  const deletePrivateMessage = useCallback(async (messageId: string): Promise<boolean> => {
+    setPrivateMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+    try {
+      await deleteDoc(doc(db, 'private_messages', messageId));
+      return true;
+    } catch (err) {
+      console.error('Error deleting private message:', err);
+      return false;
+    }
+  }, []);
+
   return {
     incomingRequest,
     sentRequestStatus,
@@ -347,6 +378,8 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
     openDirectChat,
     sendPrivateMessage,
     togglePrivateReaction,
+    editPrivateMessage,
+    deletePrivateMessage,
     clearPrivateError: () => setPrivateError(null),
   };
 }

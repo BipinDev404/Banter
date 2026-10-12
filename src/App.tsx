@@ -149,6 +149,8 @@ export default function App() {
     openDirectChat,
     sendPrivateMessage,
     togglePrivateReaction,
+    editPrivateMessage,
+    deletePrivateMessage,
   } = usePrivateChat({
     sessionId,
     userName,
@@ -220,6 +222,8 @@ export default function App() {
     leaveGroupChat,
     sendGroupMessage,
     toggleGroupReaction,
+    editGroupMessage,
+    deleteGroupMessage,
   } = useGroups({
     sessionId,
     userName,
@@ -369,23 +373,29 @@ export default function App() {
   // Unified Edit Dispatcher
   const handleEditMessage = useCallback(
     async (messageId: string, newText: string) => {
-      if (activeGroup || activePrivateChat) {
-        return true;
+      if (activeGroup) {
+        return await editGroupMessage(messageId, newText);
+      } else if (activePrivateChat) {
+        return await editPrivateMessage(messageId, newText);
+      } else {
+        return await editGlobalMessage(messageId, newText);
       }
-      return await editGlobalMessage(messageId, newText);
     },
-    [activeGroup, activePrivateChat, editGlobalMessage]
+    [activeGroup, activePrivateChat, editGroupMessage, editPrivateMessage, editGlobalMessage]
   );
 
   // Unified Delete Dispatcher
   const handleDeleteMessage = useCallback(
     async (messageId: string) => {
-      if (activeGroup || activePrivateChat) {
-        return true;
+      if (activeGroup) {
+        return await deleteGroupMessage(messageId);
+      } else if (activePrivateChat) {
+        return await deletePrivateMessage(messageId);
+      } else {
+        return await deleteGlobalMessage(messageId);
       }
-      return await deleteGlobalMessage(messageId);
     },
-    [activeGroup, activePrivateChat, deleteGlobalMessage]
+    [activeGroup, activePrivateChat, deleteGroupMessage, deletePrivateMessage, deleteGlobalMessage]
   );
 
   // Check if partner is online in private mode

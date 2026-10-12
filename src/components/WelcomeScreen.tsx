@@ -14,6 +14,7 @@ import {
   Heart,
   RefreshCw,
   Sparkles,
+  ChevronDown,
 } from 'lucide-react';
 import { BanterLogo } from './BanterLogo';
 import { getAvatarForUser } from '../lib/avatars';
@@ -35,6 +36,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   const [name, setName] = useState(initialName || '');
   const [error, setError] = useState<string | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isWhatIsBanterOpen, setIsWhatIsBanterOpen] = useState(false);
   const [isSyncingGitHub, setIsSyncingGitHub] = useState(false);
   const [githubSyncedUser, setGithubSyncedUser] = useState<string | null>(null);
 
@@ -92,34 +94,76 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           </p>
         </div>
 
-        {/* 1. First: About Banter Explanation Section */}
+        {/* 1. First: About Banter Collapsible Section with Down Button */}
         <div className="space-y-4 mb-6">
-          <div className="p-4.5 rounded-2xl bg-white/[0.04] border border-white/10 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-bold text-white">
-              <Info className="w-4 h-4 text-[#007AFF]" />
-              <span>What is Banter?</span>
-            </div>
-            <p className="text-xs text-neutral-300 leading-relaxed">
-              Banter is a fast, real-time social chat platform designed for instant live conversations. Connect with people in global public rooms, start direct 1-on-1 private chats, or create group rooms with clean 3D human avatars and Apple-style tapback reactions.
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-neutral-300 pt-1">
-              <div className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
-                <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Global Public Chat</span>
+          <div className="rounded-2xl bg-white/[0.04] border border-white/10 overflow-hidden transition-all">
+            {/* Down Button Header (Click to toggle showing details) */}
+            <button
+              type="button"
+              onClick={() => setIsWhatIsBanterOpen((prev) => !prev)}
+              className="w-full p-4 flex items-center justify-between text-left hover:bg-white/[0.03] active:bg-white/[0.06] transition-colors cursor-pointer group select-none"
+              aria-expanded={isWhatIsBanterOpen}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-full bg-blue-500/10 text-[#007AFF] flex items-center justify-center shrink-0">
+                  <Info className="w-4 h-4 stroke-[2.4]" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-white block group-hover:text-blue-400 transition-colors">
+                    What is Banter?
+                  </span>
+                  <span className="text-[11px] text-neutral-400 font-normal">
+                    {isWhatIsBanterOpen ? 'Tap to hide details' : 'Tap to learn more about Banter'}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>1-on-1 Private Rooms</span>
+
+              {/* Down Arrow / Chevron Button */}
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center bg-white/5 border border-white/10 text-neutral-300 group-hover:text-white transition-transform duration-200 shrink-0 ${
+                  isWhatIsBanterOpen ? 'rotate-180 bg-blue-500/20 text-[#007AFF] border-blue-500/30' : ''
+                }`}
+              >
+                <ChevronDown className="w-4 h-4 stroke-[2.5]" />
               </div>
-              <div className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
-                <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>Groups & Tapbacks</span>
-              </div>
-              <div className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
-                <Code2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
-                <span>3D Human Avatars</span>
-              </div>
-            </div>
+            </button>
+
+            {/* Collapsible Content: Only shown if user clicks down button */}
+            <AnimatePresence initial={false}>
+              {isWhatIsBanterOpen && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4 pt-1 space-y-3 border-t border-white/5">
+                    <p className="text-xs text-neutral-300 leading-relaxed pt-2">
+                      Banter is a fast, real-time social chat platform designed for instant live conversations. Connect with people in global public rooms, start direct 1-on-1 private chats, or create group rooms with clean 3D human avatars and Apple-style tapback reactions.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-[11px] font-medium text-neutral-300 pt-1">
+                      <div className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
+                        <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>Global Public Chat</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <span>1-on-1 Private Rooms</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
+                        <MessageSquare className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                        <span>Groups & Tapbacks</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
+                        <Code2 className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                        <span>3D Human Avatars</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Developer Section: Bipin Yadav GitHub Sync Profile */}

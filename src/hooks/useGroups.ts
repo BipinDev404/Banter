@@ -356,6 +356,37 @@ export function useGroups({ sessionId, userName, avatarId, enabled }: UseGroupsP
     });
   }, []);
 
+  // 9. Edit/Rename an existing group message
+  const editGroupMessage = useCallback(async (messageId: string, newText: string): Promise<boolean> => {
+    const trimmed = newText.trim();
+    if (!trimmed) return false;
+
+    setGroupMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, message: trimmed } : m))
+    );
+
+    try {
+      await setDoc(doc(db, 'group_messages', messageId), { message: trimmed }, { merge: true });
+      return true;
+    } catch (err) {
+      console.error('Error editing group message:', err);
+      return false;
+    }
+  }, []);
+
+  // 10. Delete an existing group message
+  const deleteGroupMessage = useCallback(async (messageId: string): Promise<boolean> => {
+    setGroupMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+    try {
+      await deleteDoc(doc(db, 'group_messages', messageId));
+      return true;
+    } catch (err) {
+      console.error('Error deleting group message:', err);
+      return false;
+    }
+  }, []);
+
   return {
     groups,
     activeGroup,
@@ -369,6 +400,8 @@ export function useGroups({ sessionId, userName, avatarId, enabled }: UseGroupsP
     leaveGroupChat,
     sendGroupMessage,
     toggleGroupReaction,
+    editGroupMessage,
+    deleteGroupMessage,
     clearGroupNotice: () => setGroupNotice(null),
   };
 }
