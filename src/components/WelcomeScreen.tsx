@@ -84,12 +84,12 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         {/* Subtle top edge highlight */}
         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none rounded-t-[32px]" />
 
-        {/* Brand Header */}
-        <div className="text-center mb-6 flex flex-col items-center">
-          <div className="mb-3">
-            <BanterLogo size="xl" showText={true} textClassName="text-white" />
+        {/* Brand Header: Stacked Logo Icon Top, Text Below */}
+        <div className="text-center mb-6 flex flex-col items-center justify-center">
+          <div className="mb-2">
+            <BanterLogo size="xl" showText={true} textClassName="text-white" layout="vertical" />
           </div>
-          <p className="text-neutral-400 text-xs font-normal tracking-tight">
+          <p className="text-neutral-400 text-xs font-medium tracking-tight mt-1">
             Talk. Laugh. Banter. Real-time live messaging.
           </p>
         </div>

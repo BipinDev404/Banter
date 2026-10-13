@@ -1,5 +1,4 @@
 import React from 'react';
-import { MessageSquare } from 'lucide-react';
 
 interface BanterLogoProps {
   className?: string;
@@ -7,6 +6,7 @@ interface BanterLogoProps {
   showText?: boolean;
   textClassName?: string;
   isDarkMode?: boolean;
+  layout?: 'horizontal' | 'vertical';
 }
 
 export const BanterLogo: React.FC<BanterLogoProps> = ({
@@ -15,24 +15,20 @@ export const BanterLogo: React.FC<BanterLogoProps> = ({
   showText = true,
   textClassName,
   isDarkMode,
+  layout = 'horizontal',
 }) => {
+  const isVertical = layout === 'vertical';
+
   const badgeSize =
     size === 'sm'
-      ? 'w-7 h-7 rounded-lg'
+      ? 'w-7 h-7'
       : size === 'lg'
-      ? 'w-10 h-10 rounded-2xl'
+      ? 'w-11 h-11'
       : size === 'xl'
-      ? 'w-12 h-12 rounded-[18px]'
-      : 'w-8.5 h-8.5 rounded-xl';
-
-  const iconSize =
-    size === 'sm'
-      ? 'w-3.5 h-3.5'
-      : size === 'lg'
-      ? 'w-5 h-5'
-      : size === 'xl'
-      ? 'w-6 h-6'
-      : 'w-4.5 h-4.5';
+      ? isVertical
+        ? 'w-16 h-16'
+        : 'w-12 h-12'
+      : 'w-8.5 h-8.5';
 
   const textSize =
     size === 'sm'
@@ -40,23 +36,32 @@ export const BanterLogo: React.FC<BanterLogoProps> = ({
       : size === 'lg'
       ? 'text-2xl font-extrabold'
       : size === 'xl'
-      ? 'text-3xl font-black'
+      ? 'text-3xl sm:text-4xl font-black tracking-tight'
       : 'text-xl font-extrabold';
 
   return (
-    <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
-      {/* Icon Badge - Flipped Right-to-Left */}
-      <div
-        className={`relative shrink-0 flex items-center justify-center bg-[#007AFF] text-white shadow-md shadow-blue-500/20 border border-white/10 ${badgeSize}`}
-      >
-        <MessageSquare className={`${iconSize} fill-white/20 text-white stroke-[2.2] -scale-x-100`} />
-      </div>
+    <div
+      className={`inline-flex ${
+        isVertical ? 'flex-col items-center justify-center text-center gap-2' : 'items-center gap-2.5'
+      } select-none ${className}`}
+    >
+      {/* Clean Flipped Favicon App Logo */}
+      <img
+        src="/favicon.svg"
+        alt="Banter Logo"
+        className={`shrink-0 object-contain ${badgeSize}`}
+      />
 
       {/* Brand Name Text */}
       {showText && (
         <span
           className={`font-extrabold tracking-tight leading-none ${
-            textClassName || (isDarkMode === false ? 'text-[#007AFF]' : isDarkMode === true ? 'text-white' : 'text-[#007AFF] dark:text-white')
+            textClassName ||
+            (isDarkMode === false
+              ? 'text-[#007AFF]'
+              : isDarkMode === true
+              ? 'text-white'
+              : 'text-[#007AFF] dark:text-white')
           } ${textSize}`}
         >
           Banter

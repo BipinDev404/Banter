@@ -207,22 +207,14 @@ export default function App() {
     ) => {
       if (msg.userId === sessionId) return;
 
-      // Do NOT show top pop-up banner if user is currently viewing this exact room live on screen!
+      // 1. Request 7: Remove public chat ("chat happening on banter") from in-app popup notifications. ONLY direct messages trigger popups!
+      if (!context?.isDirect) {
+        return;
+      }
+
+      // 2. Request 8: If user is currently in that direct chat seeing messages live, do NOT show popup notification!
       const currentPrivateChat = activePrivateChatRef.current;
-      const currentGroup = activeGroupRef.current;
-
-      const isViewingThisRoom = (() => {
-        if (context?.isDirect) {
-          return !!(currentPrivateChat && currentPrivateChat.partnerSessionId === msg.userId);
-        }
-        if (context?.groupName) {
-          return !!(currentGroup && currentGroup.name === context.groupName);
-        }
-        // Global public message:
-        return !currentPrivateChat && !currentGroup;
-      })();
-
-      if (isViewingThisRoom) {
+      if (currentPrivateChat && currentPrivateChat.partnerSessionId === msg.userId) {
         return;
       }
 
