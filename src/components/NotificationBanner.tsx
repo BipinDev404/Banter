@@ -77,25 +77,23 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
               </div>
 
               <div className="flex flex-col justify-center min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-1.5 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <span className="text-xs sm:text-sm font-bold truncate leading-none">
-                      {notification.userName}
-                    </span>
-                    {notification.isFriend && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 leading-none flex items-center">
-                        Friend
-                      </span>
-                    )}
-                    {notification.type === 'direct' && (
-                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 shrink-0 leading-none flex items-center">
-                        Direct
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[10px] sm:text-[10.5px] font-medium text-neutral-400 dark:text-neutral-400 shrink-0 self-center leading-none">
-                    Just now
+                <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+                  <span className="text-xs sm:text-sm font-bold truncate leading-none">
+                    {notification.userName}
                   </span>
+                  <span className="text-[10.5px] font-medium text-neutral-400 dark:text-neutral-400 shrink-0 leading-none">
+                    • Just now
+                  </span>
+                  {notification.isFriend && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 leading-none flex items-center">
+                      Friend
+                    </span>
+                  )}
+                  {notification.type === 'direct' && (
+                    <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 shrink-0 leading-none flex items-center">
+                      Direct
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-neutral-300 dark:text-neutral-300 line-clamp-1 font-normal break-words mt-1 leading-tight">
                   {notification.body}

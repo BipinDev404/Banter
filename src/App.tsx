@@ -22,6 +22,8 @@ import {
   useFriends,
   useGroups,
 } from '@/hooks';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldAlert } from 'lucide-react';
 import {
   WelcomeScreen,
   ChatHeader,
@@ -77,8 +79,71 @@ export default function App() {
   const [friendAlertData, setFriendAlertData] = useState<FriendAlertData | null>(null);
   const dismissedRequestsRef = useRef<Set<string>>(new Set());
 
+  // Screen Privacy & Anti-Screenshot Safeguards State
+  const [isScreenPrivacyShield, setIsScreenPrivacyShield] = useState<boolean>(false);
+
   // Active inline reply target
   const [replyTarget, setReplyTarget] = useState<{ userName: string; snippet?: string } | null>(null);
+
+  // Anti-Screenshot, Context Menu & Print Protection Listeners
+  useEffect(() => {
+    // 1. Prevent right-click context menu across the web application
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    // 2. Intercept keyboard screenshot & print shortcuts
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // PrintScreen key
+      if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
+        e.preventDefault();
+        setIsScreenPrivacyShield(true);
+        setTimeout(() => setIsScreenPrivacyShield(false), 2200);
+        try {
+          navigator.clipboard.writeText('');
+        } catch {}
+      }
+
+      // Cmd+Shift+3, Cmd+Shift+4, Cmd+Shift+5 (macOS screenshot shortcuts)
+      if (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5')) {
+        setIsScreenPrivacyShield(true);
+        setTimeout(() => setIsScreenPrivacyShield(false), 2200);
+      }
+
+      // Ctrl+P / Cmd+P (Print webpage)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        setIsScreenPrivacyShield(true);
+        setTimeout(() => setIsScreenPrivacyShield(false), 2200);
+      }
+
+      // Ctrl+S / Cmd+S (Save webpage)
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+      }
+    };
+
+    // 3. Temporarily shield content on tab switch or window blur
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setIsScreenPrivacyShield(true);
+      } else {
+        setTimeout(() => setIsScreenPrivacyShield(false), 300);
+      }
+    };
+
+    window.addEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyDown);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyDown);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Sync theme changes with html element and persistence
   useEffect(() => {
@@ -105,6 +170,8 @@ export default function App() {
   const friendsRef = useRef<any[]>([]);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  const activePrivateChatRef = useRef<any>(null);
+  const activeGroupRef = useRef<any>(null);
 
   // Connection test and service worker on boot
   useEffect(() => {
@@ -139,6 +206,25 @@ export default function App() {
       }
     ) => {
       if (msg.userId === sessionId) return;
+
+      // Do NOT show top pop-up banner if user is currently viewing this exact room live on screen!
+      const currentPrivateChat = activePrivateChatRef.current;
+      const currentGroup = activeGroupRef.current;
+
+      const isViewingThisRoom = (() => {
+        if (context?.isDirect) {
+          return !!(currentPrivateChat && currentPrivateChat.partnerSessionId === msg.userId);
+        }
+        if (context?.groupName) {
+          return !!(currentGroup && currentGroup.name === context.groupName);
+        }
+        // Global public message:
+        return !currentPrivateChat && !currentGroup;
+      })();
+
+      if (isViewingThisRoom) {
+        return;
+      }
 
       const currentSettings = settingsRef.current;
       const currentFriends = friendsRef.current;
@@ -434,6 +520,10 @@ export default function App() {
     avatarId: settings.avatarId,
     enabled: isEntered,
   });
+
+  // Keep active room refs in sync for notification filter
+  activePrivateChatRef.current = activePrivateChat;
+  activeGroupRef.current = activeGroup;
 
   // Determine active room ID for typing scope
   const activeChatId = useMemo(() => {
@@ -902,6 +992,29 @@ export default function App() {
 
       {/* System Notification Permission Prompt for Mobile & Desktop */}
       <NotificationPermissionPrompt isDarkMode={isDarkMode} />
+
+      {/* Anti-Screenshot Screen Privacy Shield */}
+      <AnimatePresence>
+        {isScreenPrivacyShield && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 text-center select-none"
+          >
+            <div className="w-16 h-16 rounded-full bg-red-500/15 text-red-500 flex items-center justify-center mb-4 ring-1 ring-red-500/30 animate-pulse">
+              <ShieldAlert className="w-8 h-8 stroke-[2.2]" />
+            </div>
+            <h2 className="text-xl font-bold text-white tracking-tight mb-2">
+              Screen Protected Mode
+            </h2>
+            <p className="text-xs text-neutral-400 max-w-sm leading-relaxed">
+              Screenshot shortcut or tab switch detected. Chat content is shielded for privacy.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

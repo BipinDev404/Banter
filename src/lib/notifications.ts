@@ -183,69 +183,39 @@ export function formatMessageNotification(
   const senderName = message.userName || 'Someone';
   const isDirect = !!context?.isDirect;
 
-  // Case 1: Friend OR Direct 1-on-1 Message -> Show the REAL message
-  if (isFriend || isDirect) {
-    let realMessageText = '';
+  let realMessageText = '';
 
-    if (message.attachment) {
-      if (message.attachment.type === 'image') {
-        realMessageText = message.message
-          ? `📷 Photo: "${message.message}"`
-          : '📷 Sent a photo';
-      } else if (message.attachment.type === 'audio') {
-        realMessageText = '🎙️ Sent a voice note';
-      } else {
-        realMessageText = `📎 Shared a file: "${message.attachment.name}"`;
-      }
-    } else if (message.replyTo) {
-      realMessageText = `↩️ Replying to ${message.replyTo.userName}: "${message.message}"`;
-    } else if (message.message) {
-      realMessageText = `"${cleanTextSnippet(message.message, 100)}"`;
-    } else {
-      realMessageText = 'Sent a message';
-    }
-
-    let title = '';
-    if (isDirect) {
-      title = isFriend
-        ? `🌟 ${senderName} (Friend)`
-        : `💬 ${senderName} • Direct Message`;
-    } else if (context?.groupName) {
-      title = isFriend
-        ? `🌟 ${senderName} (Friend) • ${context.groupName}`
-        : `${senderName} in ${context.groupName}`;
-    } else {
-      title = `🌟 ${senderName} (Friend)`;
-    }
-
-    const tag = `friend_${message.userId}_${Date.now()}`;
-    return { title, body: realMessageText, tag };
-  }
-
-  // Case 2: Simple chats happening on Banter (public room / banter chatter)
-  // Formatted with proper grammar: indicates chats are taking place on Banter & invites user!
-  const title = context?.groupName
-    ? `Banter • ${context.groupName}`
-    : 'Banter • Live Chat';
-
-  let body = '';
   if (message.attachment) {
     if (message.attachment.type === 'image') {
-      body = `Chats are happening on Banter! ${senderName} just shared a photo. Would you like to join the banter?`;
+      realMessageText = message.message
+        ? `📷 Photo: "${cleanTextSnippet(message.message, 80)}"`
+        : '📷 Sent a photo';
     } else if (message.attachment.type === 'audio') {
-      body = `Chats are happening on Banter! ${senderName} recorded a voice note. Would you like to join the banter?`;
+      realMessageText = '🎙️ Sent a voice note';
     } else {
-      body = `Chats are happening on Banter! ${senderName} shared a file: "${message.attachment.name}". Jump in to join the conversation.`;
+      realMessageText = `📎 Shared a file: "${message.attachment.name}"`;
     }
+  } else if (message.replyTo) {
+    realMessageText = `↩️ Replying to ${message.replyTo.userName}: "${cleanTextSnippet(message.message, 80)}"`;
   } else if (message.message && message.message.trim().length > 0) {
-    const snippet = cleanTextSnippet(message.message, 55);
-    body = `Chats are happening on Banter right now! ${senderName} says: "${snippet}" — Would you like to join the banter?`;
+    realMessageText = cleanTextSnippet(message.message, 100);
   } else {
-    body = `Active conversations are happening on Banter right now! Jump into the room to join the banter.`;
+    realMessageText = 'Sent a message';
   }
 
-  const tag = `banter_chat_${Date.now()}`;
-  return { title, body, tag };
+  let title = senderName;
+  if (isFriend) {
+    title = `🌟 ${senderName} (Friend)`;
+  } else if (isDirect) {
+    title = `💬 ${senderName}`;
+  } else if (context?.groupName) {
+    title = `${senderName} • ${context.groupName}`;
+  } else {
+    title = senderName;
+  }
+
+  const tag = `msg_${message.id || Date.now()}`;
+  return { title, body: realMessageText, tag };
 }
 
 /**
@@ -400,8 +370,8 @@ export async function triggerTestNotification(
     });
   } else {
     return sendSystemNotification({
-      title: 'Banter • Live Chat',
-      body: 'Chats are happening on Banter right now! Jordan says: "Anyone watching the game tonight?" — Would you like to join the banter?',
+      title: 'Jordan',
+      body: 'Anyone watching the game tonight?',
       tag: `test_banter_${Date.now()}`,
       onClick: () => {
         window.focus();

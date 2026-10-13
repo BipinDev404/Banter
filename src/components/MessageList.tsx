@@ -225,6 +225,20 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages, loading, currentUserId, scrollToBottom]);
 
+  // Auto-scroll to reveal typing indicator fully when someone starts typing
+  useEffect(() => {
+    if (typingUsers && typingUsers.length > 0) {
+      const container = containerRef.current;
+      if (container) {
+        const distanceFromBottom =
+          container.scrollHeight - container.scrollTop - container.clientHeight;
+        if (distanceFromBottom < 320) {
+          scrollToBottom('smooth');
+        }
+      }
+    }
+  }, [typingUsers, scrollToBottom]);
+
   const handleScroll = () => {
     const container = containerRef.current;
     if (!container) return;
@@ -381,7 +395,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         )}
 
         <TypingIndicator typingUsers={typingUsers} isDarkMode={isDarkMode} />
-        <div ref={bottomRef} className="h-3" />
+        <div ref={bottomRef} className="h-6 shrink-0" />
       </div>
 
       {showScrollBottom && (

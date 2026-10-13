@@ -22,6 +22,14 @@
     color-scheme: dark;
   }
 
+  /* Anti-Screenshot & Print Screen Shield */
+  @media print {
+    html, body, #root {
+      display: none !important;
+      visibility: hidden !important;
+    }
+  }
+
   html:not(.dark) {
     background-color: #F2F2F7;
     color-scheme: light;
