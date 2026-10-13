@@ -178,7 +178,7 @@ export function useTyping({ sessionId, userName, enabled, chatId = 'global' }: U
     );
 
     return () => unsubscribe();
-  }, [enabled, sessionId]);
+  }, [enabled, sessionId, chatId]);
 
   // Periodic ticker to prune typing indicators if a user stopped without explicit write
   useEffect(() => {
