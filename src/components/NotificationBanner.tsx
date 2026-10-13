@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, X, ArrowRight, UserPlus, Sparkles } from 'lucide-react';
+import { MessageSquare, X, Reply, UserPlus, Sparkles } from 'lucide-react';
+import { getAvatarForUser } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
 
 export interface InAppPushNotification {
@@ -34,10 +35,14 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
     return () => clearTimeout(timer);
   }, [notification, onDismiss]);
 
+  const avatar = notification
+    ? getAvatarForUser(undefined, notification.userName, notification.avatarId)
+    : null;
+
   return (
     <div className="fixed top-3 left-0 right-0 z-50 flex justify-center px-3 sm:px-4 pointer-events-none select-none">
       <AnimatePresence>
-        {notification && (
+        {notification && avatar && (
           <motion.div
             initial={{ opacity: 0, y: -45, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -59,11 +64,10 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="relative shrink-0">
                 <UserAvatar
-                  avatarId={notification.avatarId}
-                  name={notification.userName}
+                  avatar={avatar}
                   size="md"
-                  showStatus={true}
-                  status="online"
+                  showOnlineBadge={true}
+                  isOnline={true}
                 />
                 {notification.isFriend && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-black flex items-center justify-center text-[9px] font-bold shadow-xs">
@@ -72,33 +76,35 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
                 )}
               </div>
 
-              <div className="flex flex-col min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs sm:text-sm font-bold truncate">
-                    {notification.userName}
-                  </span>
-                  {notification.isFriend && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[9.5px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
-                      Friend
+              <div className="flex flex-col justify-center min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1.5 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <span className="text-xs sm:text-sm font-bold truncate leading-none">
+                      {notification.userName}
                     </span>
-                  )}
-                  {notification.type === 'direct' && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[9.5px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 shrink-0">
-                      Direct
-                    </span>
-                  )}
-                  <span className="text-[10px] text-neutral-400 ml-auto shrink-0">
+                    {notification.isFriend && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0 leading-none flex items-center">
+                        Friend
+                      </span>
+                    )}
+                    {notification.type === 'direct' && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 shrink-0 leading-none flex items-center">
+                        Direct
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] sm:text-[10.5px] font-medium text-neutral-400 dark:text-neutral-400 shrink-0 self-center leading-none">
                     Just now
                   </span>
                 </div>
-                <p className="text-xs text-neutral-300 dark:text-neutral-300 line-clamp-1 font-normal break-words mt-0.5">
+                <p className="text-xs text-neutral-300 dark:text-neutral-300 line-clamp-1 font-normal break-words mt-1 leading-tight">
                   {notification.body}
                 </p>
               </div>
             </div>
 
             {/* Action & Close */}
-            <div className="flex items-center gap-1 shrink-0 ml-1">
+            <div className="flex items-center gap-1.5 shrink-0 ml-1">
               {notification.onAction && (
                 <button
                   type="button"
@@ -107,10 +113,11 @@ export const NotificationBanner: React.FC<NotificationBannerProps> = ({
                     notification.onAction?.();
                     onDismiss();
                   }}
-                  className="px-2.5 py-1 rounded-full bg-[#007AFF] hover:bg-[#0071E3] text-white text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs active:scale-95"
+                  className="w-8 h-8 rounded-full bg-[#007AFF] hover:bg-[#0071E3] text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 shrink-0"
+                  title="Reply"
+                  aria-label="Reply"
                 >
-                  <span>Reply</span>
-                  <ArrowRight className="w-3 h-3" />
+                  <Reply className="w-4 h-4 stroke-[2.5]" />
                 </button>
               )}
               <button

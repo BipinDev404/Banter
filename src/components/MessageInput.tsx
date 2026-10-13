@@ -72,10 +72,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiTrayRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Close emoji tray when clicking outside
+  useEffect(() => {
+    if (!showEmojiTray) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiTrayRef.current && !emojiTrayRef.current.contains(e.target as Node)) {
+        setShowEmojiTray(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmojiTray]);
 
   // Cleanup media recording stream on unmount
   useEffect(() => {
@@ -603,9 +616,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             />
 
             {/* Quick Emoji Trigger Button & Vertical Rectangle Popover with Triangle Caret */}
-            <div className="relative shrink-0">
+            <div className="relative shrink-0" ref={emojiTrayRef}>
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => setShowEmojiTray((prev) => !prev)}
                 className={`p-1.5 rounded-full transition-colors cursor-pointer shrink-0 ml-1 ${
                   showEmojiTray
@@ -640,6 +654,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                       </span>
                       <button
                         type="button"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => setShowEmojiTray(false)}
                         className="p-1 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 cursor-pointer transition-colors"
                       >
@@ -662,11 +677,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                               <button
                                 key={idx}
                                 type="button"
+                                onMouseDown={(e) => e.preventDefault()}
                                 onClick={() => {
                                   setText((prev) => prev + emoji);
+                                  if (onTyping) onTyping();
                                   inputRef.current?.focus();
                                 }}
-                                className="w-9 h-9 rounded-xl flex items-center justify-center text-lg hover:bg-black/5 dark:hover:bg-white/10 hover:scale-125 active:scale-95 transition-all cursor-pointer"
+                                className="w-9 h-9 rounded-xl flex items-center justify-center text-lg hover:bg-black/5 dark:hover:bg-white/10 hover:scale-125 active:scale-95 transition-all cursor-pointer select-none"
                                 title={emoji}
                               >
                                 {emoji}

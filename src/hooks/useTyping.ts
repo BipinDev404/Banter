@@ -14,36 +14,53 @@ interface UseTypingProps {
   sessionId: string;
   userName: string;
   enabled: boolean;
+  chatId?: string;
 }
 
-export function useTyping({ sessionId, userName, enabled }: UseTypingProps) {
+export function useTyping({ sessionId, userName, enabled, chatId = 'global' }: UseTypingProps) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSentTimeRef = useRef<number>(0);
   const isTypingRef = useRef<boolean>(false);
+  const currentChatIdRef = useRef<string>(chatId);
+  currentChatIdRef.current = chatId;
+
+  // Clear typing status on room switch
+  useEffect(() => {
+    return () => {
+      if (sessionId && currentChatIdRef.current) {
+        try {
+          deleteDoc(doc(db, 'typing', `${sessionId}_${currentChatIdRef.current}`)).catch(() => {});
+        } catch {}
+      }
+    };
+  }, [chatId, sessionId]);
 
   // Send typing state to Firestore
   const updateTypingInFirestore = useCallback(
     async (isTyping: boolean) => {
       if (!enabled || !sessionId || !userName) return;
 
+      const roomKey = `${sessionId}_${chatId}`;
       try {
-        const typingDocRef = doc(db, 'typing', sessionId);
+        const typingDocRef = doc(db, 'typing', roomKey);
         if (isTyping) {
           await setDoc(typingDocRef, {
             sessionId,
             userName: userName.slice(0, 20),
             isTyping: true,
+            chatId,
             lastTyped: serverTimestamp(),
           });
           isTypingRef.current = true;
         } else {
-          // When stopping, either set isTyping: false or delete doc
+          // When stopping, update doc state
           if (isTypingRef.current) {
             await setDoc(typingDocRef, {
               sessionId,
               userName: userName.slice(0, 20),
               isTyping: false,
+              chatId,
               lastTyped: serverTimestamp(),
             });
             isTypingRef.current = false;
@@ -53,7 +70,7 @@ export function useTyping({ sessionId, userName, enabled }: UseTypingProps) {
         console.error('Failed to update typing state:', err);
       }
     },
-    [sessionId, userName, enabled]
+    [sessionId, userName, enabled, chatId]
   );
 
   // Called whenever user types into input
@@ -92,7 +109,8 @@ export function useTyping({ sessionId, userName, enabled }: UseTypingProps) {
 
     const handleLeave = () => {
       try {
-        const typingDocRef = doc(db, 'typing', sessionId);
+        const roomKey = `${sessionId}_${chatId}`;
+        const typingDocRef = doc(db, 'typing', roomKey);
         deleteDoc(typingDocRef);
       } catch {
         // non-blocking
@@ -110,9 +128,9 @@ export function useTyping({ sessionId, userName, enabled }: UseTypingProps) {
       window.removeEventListener('pagehide', handleLeave);
       handleLeave();
     };
-  }, [sessionId, enabled]);
+  }, [sessionId, enabled, chatId]);
 
-  // Listen in real-time to other users typing
+  // Listen in real-time to other users typing in the CURRENT room only
   useEffect(() => {
     if (!enabled) return;
 
@@ -125,10 +143,14 @@ export function useTyping({ sessionId, userName, enabled }: UseTypingProps) {
 
         snapshot.forEach((docSnap) => {
           // Do not include self
-          if (docSnap.id === sessionId) return;
+          if (docSnap.id.startsWith(sessionId)) return;
 
           const data = docSnap.data();
           if (!data.isTyping) return;
+
+          // Filter typing status strictly by current room chatId (default 'global')
+          const docChatId = data.chatId || 'global';
+          if (docChatId !== chatId) return;
 
           const lastTypedTime = data.lastTyped?.toMillis
             ? data.lastTyped.toMillis()
@@ -137,7 +159,7 @@ export function useTyping({ sessionId, userName, enabled }: UseTypingProps) {
           // Only consider active if typed within the last 4.5 seconds
           if (now - lastTypedTime < 4500) {
             activeTypers.push({
-              sessionId: docSnap.id,
+              sessionId: data.sessionId || docSnap.id,
               userName: data.userName || 'Someone',
               lastTyped: lastTypedTime,
             });

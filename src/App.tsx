@@ -243,13 +243,6 @@ export default function App() {
     },
   });
 
-  // Real-time typing status hook
-  const { typingUsers, notifyTyping, stopTyping } = useTyping({
-    sessionId,
-    userName,
-    enabled: isEntered,
-  });
-
   // Real-time 1-on-1 Direct Chat hook
   const {
     incomingRequest,
@@ -442,6 +435,21 @@ export default function App() {
     enabled: isEntered,
   });
 
+  // Determine active room ID for typing scope
+  const activeChatId = useMemo(() => {
+    if (activeGroup) return activeGroup.id;
+    if (activePrivateChat) return activePrivateChat.roomId;
+    return 'global';
+  }, [activeGroup, activePrivateChat]);
+
+  // Real-time typing status hook (scoped per room)
+  const { typingUsers, notifyTyping, stopTyping } = useTyping({
+    sessionId,
+    userName,
+    enabled: isEntered,
+    chatId: activeChatId,
+  });
+
   // Determine active conversation messages (Group > Direct > Global)
   const currentMessages = activeGroup
     ? groupMessages
@@ -486,6 +494,11 @@ export default function App() {
     setUserName(cleanName);
     setIsEntered(true);
   };
+
+  const handleUpdateSettings = useCallback((newSettings: AppSettings) => {
+    setSettings(newSettings);
+    saveSettings(newSettings);
+  }, []);
 
   const handleSaveNewName = (newName: string, newAvatarId?: string) => {
     const cleanName = newName.trim();
@@ -675,7 +688,7 @@ export default function App() {
         onReplyTo={handleReplyTo}
         onOpenImage={(url, name) => setLightboxImage({ url, name })}
         onOpenActionsModal={(msg) => setActionsMsg(msg)}
-        typingUsers={activePrivateChat || activeGroup ? [] : typingUsers}
+        typingUsers={typingUsers}
         isDarkMode={isDarkMode}
         settings={settings}
       />
@@ -702,6 +715,7 @@ export default function App() {
         onSaveName={handleSaveNewName}
         onClearData={handleClearData}
         settings={settings}
+        onUpdateSettings={handleUpdateSettings}
         isDarkMode={isDarkMode}
       />
 
