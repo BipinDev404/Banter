@@ -108,7 +108,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <h2 id="profile-modal-title" className="text-base font-bold tracking-tight leading-none">
                     Profile & Username
                   </h2>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">Change your display username</p>
                 </div>
               </div>
 
@@ -256,7 +255,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
                 </button>
 
-                {/* 2-Hour Auto-Purge Notice */}
+                {/* 2-Hour Auto-Purge Notice (Placed directly below Save Username button) */}
                 <div className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 ${
                   isDarkMode
                     ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'

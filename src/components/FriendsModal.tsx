@@ -359,14 +359,6 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                               <span className="text-sm font-semibold truncate text-neutral-900 dark:text-neutral-100">
                                 {friend.friendName}
                               </span>
-                              <span className="text-[11px] text-neutral-400 flex items-center gap-1.5">
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
-                                    isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'
-                                  }`}
-                                />
-                                <span>{isOnline ? 'Active now • Click to chat' : 'Offline • Click to chat'}</span>
-                              </span>
                             </div>
                           </div>
 
@@ -685,9 +677,6 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                               <div className="flex flex-col min-w-0">
                                 <span className="text-sm font-semibold truncate text-neutral-900 dark:text-neutral-100">
                                   {user.userName}
-                                </span>
-                                <span className="text-[10px] text-emerald-500 font-medium">
-                                  Active now
                                 </span>
                               </div>
                             </div>

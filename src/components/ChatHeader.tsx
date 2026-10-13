@@ -47,16 +47,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onOpenNotifications,
   notificationPermission = 'default',
 }) => {
-  const validTypingUsers = (typingUsers || []).filter(
-    (u) => u && typeof u.userName === 'string' && u.userName.trim().length > 0
-  );
-  const hasTypers = validTypingUsers.length > 0;
-  const firstTyperName = validTypingUsers[0]?.userName || 'Someone';
-  const typerLabel =
-    validTypingUsers.length === 1
-      ? `${firstTyperName} is typing`
-      : `${firstTyperName} +${validTypingUsers.length - 1} typing`;
-
   // Partner avatar for chat
   const partnerAvatar = activePrivateChat
     ? getAvatarForUser(
@@ -95,98 +85,56 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             {onLeaveGroupChat && (
               <button
                 type="button"
-                onClick={onLeaveGroupChat}
-                className={`p-2 rounded-full active:scale-90 transition-all cursor-pointer ${
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLeaveGroupChat();
+                }}
+                className={`p-2 rounded-full active:scale-90 transition-all cursor-pointer shrink-0 ${
                   isDarkMode
                     ? 'bg-white/10 hover:bg-white/15 text-white'
                     : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
                 }`}
-                title="Back to Global Chat"
-                aria-label="Back to Global Chat"
+                title="Exit chat and return to main room"
+                aria-label="Exit chat"
               >
-                <ArrowLeft className="w-4 h-4 stroke-[2.2]" />
+                <ArrowLeft className="w-4.5 h-4.5 stroke-[2.5]" />
               </button>
             )}
 
-            {groupAvatar && <UserAvatar avatar={groupAvatar} size="sm" />}
-
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-sm sm:text-base tracking-tight truncate">
-                  {activeGroup.name}
-                </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 flex items-center gap-1">
-                  <MessageSquare className="w-2.5 h-2.5 stroke-[2.5]" />
-                  <span>Group</span>
-                </span>
-              </div>
-              <span className="text-[11px] text-neutral-400">
-                {activeGroup.members.length} {activeGroup.members.length === 1 ? 'member' : 'members'} • Details
-              </span>
-            </div>
+            <span className="font-bold text-sm sm:text-base tracking-tight truncate">
+              {activeGroup.name}
+            </span>
           </div>
         ) : activePrivateChat ? (
-          /* 1-on-1 Chat Mode Header */
-          <div className="flex items-center gap-2.5 min-w-0">
+          /* 1-on-1 Friend Private Chat Mode Header */
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             {onLeavePrivateChat && (
               <button
                 type="button"
-                onClick={onLeavePrivateChat}
-                className={`p-2 rounded-full active:scale-90 transition-all cursor-pointer ${
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLeavePrivateChat();
+                }}
+                className={`p-2 rounded-full active:scale-90 transition-all cursor-pointer shrink-0 ${
                   isDarkMode
                     ? 'bg-white/10 hover:bg-white/15 text-white'
                     : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
                 }`}
-                title="Back to Global Chat"
-                aria-label="Back to Global Chat"
+                title="Exit friend chat and return to main room"
+                aria-label="Exit chat"
               >
-                <ArrowLeft className="w-4 h-4 stroke-[2.2]" />
+                <ArrowLeft className="w-4.5 h-4.5 stroke-[2.5]" />
               </button>
             )}
 
-            {partnerAvatar && (
-              <UserAvatar
-                avatar={partnerAvatar}
-                size="sm"
-                isOnline={isPartnerOnline}
-                showOnlineBadge={true}
-              />
-            )}
-
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-sm sm:text-base tracking-tight truncate">
-                  {activePrivateChat.partnerName}
-                </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-300 flex items-center gap-1">
-                  <MessageSquare className="w-2.5 h-2.5 stroke-[2.5]" />
-                  <span>Chat</span>
-                </span>
-              </div>
-              <span className="text-[11px] text-neutral-400 flex items-center gap-1.5">
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isPartnerOnline ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-500'
-                  }`}
-                />
-                <span>{isPartnerOnline ? 'Active in chat' : 'Offline'}</span>
-              </span>
-            </div>
+            <span className="font-bold text-sm sm:text-base tracking-tight truncate">
+              {activePrivateChat.partnerName}
+            </span>
           </div>
         ) : (
           /* Global Room Brand Header */
           <div className="flex items-center gap-3 min-w-0">
             <BanterLogo size="md" showText={true} isDarkMode={isDarkMode} />
-            {hasTypers && (
-              <span className="text-[11px] text-[#007AFF] font-medium tracking-tight flex items-center gap-1.5 animate-in fade-in">
-                <span>{typerLabel}</span>
-                <span className="inline-flex gap-0.5 items-center">
-                  <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:-0.3s]" />
-                  <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:-0.15s]" />
-                  <span className="w-1 h-1 rounded-full bg-[#007AFF] animate-bounce [animation-delay:0s]" />
-                </span>
-              </span>
-            )}
           </div>
         )}
       </div>

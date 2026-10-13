@@ -129,9 +129,6 @@ export const OnlineUsersModal: React.FC<OnlineUsersModalProps> = ({
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-neutral-400">
-                          Active now
-                        </span>
                       </div>
                     </div>
 
