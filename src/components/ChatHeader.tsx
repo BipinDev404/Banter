@@ -101,6 +101,8 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               </button>
             )}
 
+            {groupAvatar && <UserAvatar avatar={groupAvatar} size="sm" />}
+
             <span className="font-bold text-sm sm:text-base tracking-tight truncate">
               {activeGroup.name}
             </span>
@@ -125,6 +127,15 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               >
                 <ArrowLeft className="w-4.5 h-4.5 stroke-[2.5]" />
               </button>
+            )}
+
+            {partnerAvatar && (
+              <UserAvatar
+                avatar={partnerAvatar}
+                size="sm"
+                isOnline={isPartnerOnline}
+                showOnlineBadge={true}
+              />
             )}
 
             <span className="font-bold text-sm sm:text-base tracking-tight truncate">
