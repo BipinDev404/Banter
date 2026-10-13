@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUp, X, Plus, FileText, Loader2, Reply, Mic, Trash2, Check, Smile } from 'lucide-react';
+import { ArrowUp, X, Plus, FileText, Loader2, Reply, CornerDownRight, Mic, Trash2, Check, Smile } from 'lucide-react';
 import { ChatAttachment } from '../types';
 import { processImageAttachment, processFileAttachment, processAudioBlobAttachment, formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
@@ -462,23 +462,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
       {/* Active Reply Banner Preview */}
       {replyTarget && (
-        <div className="max-w-3xl mx-auto px-4 pt-2.5">
-          <div className={`p-2.5 rounded-2xl border flex items-center justify-between gap-3 animate-in fade-in zoom-in-95 duration-150 ${
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 pt-2">
+          <div className={`p-2 px-3 rounded-2xl border flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-150 shadow-xs ${
             isDarkMode
-              ? 'border-blue-500/30 bg-blue-950/40 text-white'
-              : 'border-blue-200 bg-blue-50/80 text-neutral-900 shadow-sm'
+              ? 'border-blue-500/30 bg-[#1c1c1e] text-white'
+              : 'border-blue-200 bg-blue-50/90 text-neutral-900'
           }`}>
             <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-500 dark:text-blue-400 flex items-center justify-center shrink-0">
-                <Reply className="w-4 h-4 stroke-[2.5]" />
-              </div>
+              <div className="w-[3px] h-8 rounded-full bg-[#007AFF] shrink-0" />
               <div className="flex flex-col min-w-0 flex-1">
-                <span className="text-xs font-bold text-blue-500 dark:text-blue-400 truncate">
-                  Replying to {replyTarget.userName}
-                </span>
+                <div className="flex items-center gap-1 text-xs font-bold text-[#007AFF] dark:text-blue-400">
+                  <Reply className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
+                  <span className="truncate">Replying to {replyTarget.userName}</span>
+                </div>
                 {replyTarget.snippet && (
-                  <span className="text-xs text-neutral-600 dark:text-neutral-300 truncate font-normal italic">
-                    &ldquo;{replyTarget.snippet}&rdquo;
+                  <span className="text-xs text-neutral-600 dark:text-neutral-300 truncate font-normal mt-0.5">
+                    {replyTarget.snippet}
                   </span>
                 )}
               </div>
@@ -487,14 +486,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             <button
               type="button"
               onClick={onClearReply}
-              className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+              className={`w-7 h-7 rounded-full flex items-center justify-center transition-all cursor-pointer active:scale-90 shrink-0 ${
                 isDarkMode
-                  ? 'hover:bg-white/10 text-neutral-400 hover:text-white'
-                  : 'hover:bg-black/5 text-neutral-500 hover:text-black'
+                  ? 'bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white'
+                  : 'bg-black/10 hover:bg-black/15 text-neutral-600 hover:text-black'
               }`}
               title="Cancel reply"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5 stroke-[2.5]" />
             </button>
           </div>
         </div>

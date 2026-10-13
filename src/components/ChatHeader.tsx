@@ -144,7 +144,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </div>
         ) : (
           /* Global Room Brand Header */
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             <BanterLogo size="md" showText={true} isDarkMode={isDarkMode} />
           </div>
         )}

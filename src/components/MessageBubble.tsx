@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '../types';
 import { getAvatarForUser, TAPBACK_REACTIONS, renderReactionIcon } from '../lib/avatars';
 import { recordRecentEmoji } from '../lib/emojiStore';
-import { Reply, FileText, Download, Maximize2, Smile, Mic, Play, Pause, Info } from 'lucide-react';
+import { Reply, CornerDownRight, FileText, Download, Maximize2, Smile, Mic, Play, Pause, Info } from 'lucide-react';
 import { formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
 import { UserAvatar } from './UserAvatar';
@@ -672,6 +672,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               </button>
             </div>
 
+            {/* Separate Circular Top Capsule Badge for Quoted Old Message (UP) */}
+            {quotedReply && (
+              <div
+                className={`mb-1 flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-2xs text-[10.5px] font-medium max-w-[260px] sm:max-w-[300px] truncate select-none self-end mr-0.5 transition-all ${
+                  isDarkMode
+                    ? 'bg-[#2c2c2e]/90 text-neutral-200 border-white/10'
+                    : 'bg-neutral-200/90 text-neutral-800 border-black/10'
+                } backdrop-blur-md`}
+              >
+                <Reply className="w-3 h-3 text-[#007AFF] dark:text-blue-400 stroke-[2.5] shrink-0" />
+                <span className="font-bold text-neutral-900 dark:text-white shrink-0">{quotedReply.userName}:</span>
+                <span className="truncate italic font-normal opacity-90">
+                  {quotedReply.snippet ? quotedReply.snippet : 'Message'}
+                </span>
+              </div>
+            )}
+
             {/* Sent Bubble Container with Apple Geometry & Inner Border */}
             <div
               onContextMenu={(e) => e.preventDefault()}
@@ -720,21 +737,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       </div>
                       <Download className="w-4 h-4 shrink-0 opacity-80" />
                     </a>
-                  )}
-                </div>
-              )}
-
-              {/* Quoted Reply Box */}
-              {quotedReply && (
-                <div className="mb-1 p-2.5 rounded-xl bg-black/20 border-l-[3px] border-white text-white flex flex-col gap-0.5 text-xs shadow-2xs">
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/90">
-                    <Reply className="w-3 h-3 stroke-[2.5]" />
-                    <span>Replying to {quotedReply.userName}</span>
-                  </div>
-                  {quotedReply.snippet && (
-                    <span className="truncate opacity-85 italic font-normal text-[11.5px]">
-                      &ldquo;{quotedReply.snippet}&rdquo;
-                    </span>
                   )}
                 </div>
               )}
@@ -854,6 +856,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 </button>
               </div>
 
+              {/* Separate Circular Top Capsule Badge for Quoted Old Message (UP) */}
+              {quotedReply && (
+                <div
+                  className={`mb-1 flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-2xs text-[10.5px] font-medium max-w-[260px] sm:max-w-[300px] truncate select-none self-start ml-0.5 transition-all ${
+                    isDarkMode
+                      ? 'bg-[#2c2c2e]/90 text-neutral-200 border-white/10'
+                      : 'bg-neutral-200/90 text-neutral-800 border-black/10'
+                  } backdrop-blur-md`}
+                >
+                  <Reply className="w-3 h-3 text-[#007AFF] dark:text-blue-400 stroke-[2.5] shrink-0" />
+                  <span className="font-bold text-neutral-900 dark:text-white shrink-0">{quotedReply.userName}:</span>
+                  <span className="truncate italic font-normal opacity-90">
+                    {quotedReply.snippet ? quotedReply.snippet : 'Message'}
+                  </span>
+                </div>
+              )}
+
               {/* Bubble Container with Apple Neutral Glass */}
               <div
                 onContextMenu={(e) => e.preventDefault()}
@@ -909,23 +928,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         </div>
                         <Download className="w-4 h-4 shrink-0 opacity-75" />
                       </a>
-                    )}
-                  </div>
-                )}
-
-                {/* Quoted Reply Box */}
-                {quotedReply && (
-                  <div className={`mb-1 p-2.5 rounded-xl border-l-[3px] border-[#007AFF] flex flex-col gap-0.5 text-xs shadow-2xs ${
-                    isDarkMode ? 'bg-black/30 text-neutral-200' : 'bg-black/5 text-neutral-800'
-                  }`}>
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#007AFF]">
-                      <Reply className="w-3 h-3 stroke-[2.5]" />
-                      <span>Replying to {quotedReply.userName}</span>
-                    </div>
-                    {quotedReply.snippet && (
-                      <span className="truncate opacity-85 italic font-normal text-[11.5px]">
-                        &ldquo;{quotedReply.snippet}&rdquo;
-                      </span>
                     )}
                   </div>
                 )}

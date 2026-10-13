@@ -42,7 +42,7 @@ export const BanterLogo: React.FC<BanterLogoProps> = ({
   return (
     <div
       className={`inline-flex ${
-        isVertical ? 'flex-col items-center justify-center text-center gap-2' : 'items-center gap-2.5'
+        isVertical ? 'flex-col items-center justify-center text-center gap-1' : 'items-center gap-1.5'
       } select-none ${className}`}
     >
       {/* Clean Flipped Favicon App Logo */}
