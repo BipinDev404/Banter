@@ -177,10 +177,32 @@ export const MessageList: React.FC<MessageListProps> = ({
     };
   }, []);
 
+  const isNearBottomRef = useRef(true);
+
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    bottomRef.current?.scrollIntoView({ behavior });
+    const container = containerRef.current;
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior });
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior });
+    }
+    isNearBottomRef.current = true;
     setHasUnreadBelow(false);
     setUnreadSender(null);
+  }, []);
+
+  // Keep chat pinned to bottom when container height shrinks (e.g., mobile keyboard opens)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      if (isNearBottomRef.current) {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
   }, []);
 
   // Handle auto-scrolling & new message detection
@@ -246,6 +268,8 @@ export const MessageList: React.FC<MessageListProps> = ({
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
 
+    isNearBottomRef.current = distanceFromBottom < 120;
+
     if (distanceFromBottom < 80) {
       if (hasUnreadBelow) {
         setHasUnreadBelow(false);
@@ -272,7 +296,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   if (loading && (!messages || messages.length === 0)) {
     return (
-      <div className={`flex-1 flex flex-col items-center justify-center p-6 text-neutral-400 ${isDarkMode ? 'bg-black' : 'bg-[#F2F2F7]'}`}>
+      <div className={`flex-1 min-h-0 flex flex-col items-center justify-center p-6 text-neutral-400 ${isDarkMode ? 'bg-black' : 'bg-[#F2F2F7]'}`}>
         <Loader2 className="w-6 h-6 animate-spin text-[#007AFF] mb-2" />
         <span className="text-xs font-medium tracking-tight">Connecting to chat...</span>
       </div>
@@ -286,7 +310,7 @@ export const MessageList: React.FC<MessageListProps> = ({
       ref={containerRef}
       onScroll={handleScroll}
       style={{ overflowAnchor: 'none' }}
-      className={`flex-1 overflow-y-auto px-4 sm:px-8 py-4 relative transition-colors ${
+      className={`flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-8 py-4 relative transition-colors ${
         isDarkMode ? 'bg-black text-white' : 'bg-[#F2F2F7] text-neutral-900'
       }`}
     >

@@ -20,6 +20,7 @@
   html {
     background-color: #000000;
     color-scheme: dark;
+    overscroll-behavior: none;
   }
 
   /* Anti-Screenshot & Print Screen Shield */
@@ -46,6 +47,7 @@
     text-rendering: optimizeLegibility;
     letter-spacing: -0.015em;
     overflow-x: hidden;
+    overscroll-behavior: none;
   }
 
   html:not(.dark) body {

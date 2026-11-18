@@ -710,6 +710,80 @@ export default function App() {
     return onlineUsers.some((u) => u.sessionId === activePrivateChat.partnerSessionId);
   }, [activePrivateChat, onlineUsers]);
 
+  // Lock chat shell to the active visualViewport so mobile keyboards never push ChatHeader off-screen
+  const [viewportRect, setViewportRect] = useState<{ top: number; height: number } | null>(null);
+
+  useEffect(() => {
+    if (!isEntered || typeof window === 'undefined') return;
+
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevBodyPosition = document.body.style.position;
+    const prevBodyWidth = document.body.style.width;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+
+    let rafId = 0;
+    const timers: number[] = [];
+
+    const syncViewport = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+      const vv = window.visualViewport;
+      if (vv) {
+        const nextTop = Math.max(0, Math.round(vv.offsetTop));
+        const nextHeight = Math.max(220, Math.round(vv.height));
+        setViewportRect((prev) =>
+          prev && prev.top === nextTop && prev.height === nextHeight
+            ? prev
+            : { top: nextTop, height: nextHeight }
+        );
+      } else {
+        setViewportRect({ top: 0, height: window.innerHeight });
+      }
+    };
+
+    const scheduleSync = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(syncViewport);
+    };
+
+    const handleFocusIn = () => {
+      scheduleSync();
+      timers.push(window.setTimeout(syncViewport, 80));
+      timers.push(window.setTimeout(syncViewport, 250));
+      timers.push(window.setTimeout(syncViewport, 450));
+    };
+
+    syncViewport();
+
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', scheduleSync);
+    vv?.addEventListener('scroll', scheduleSync);
+    window.addEventListener('resize', scheduleSync);
+    window.addEventListener('scroll', scheduleSync, { passive: true });
+    window.addEventListener('focusin', handleFocusIn);
+    window.addEventListener('focusout', handleFocusIn);
+
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      timers.forEach((id) => clearTimeout(id));
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
+      document.body.style.position = prevBodyPosition;
+      document.body.style.width = prevBodyWidth;
+      vv?.removeEventListener('resize', scheduleSync);
+      vv?.removeEventListener('scroll', scheduleSync);
+      window.removeEventListener('resize', scheduleSync);
+      window.removeEventListener('scroll', scheduleSync);
+      window.removeEventListener('focusin', handleFocusIn);
+      window.removeEventListener('focusout', handleFocusIn);
+    };
+  }, [isEntered]);
+
   if (!isEntered) {
     return (
       <WelcomeScreen
@@ -725,14 +799,18 @@ export default function App() {
 
   return (
     <div
-      style={{ fontFamily: activeFont.fontFamily }}
-      className={`h-[100dvh] w-full flex flex-col overflow-hidden transition-colors ${
+      style={{
+        fontFamily: activeFont.fontFamily,
+        top: viewportRect ? `${viewportRect.top}px` : '0px',
+        height: viewportRect ? `${viewportRect.height}px` : '100dvh',
+      }}
+      className={`fixed inset-x-0 w-full flex flex-col overflow-hidden transition-colors ${
         isDarkMode ? 'dark bg-black text-white' : 'bg-[#F2F2F7] text-neutral-900'
       }`}
     >
       {/* Offline Alert */}
       {isOffline && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-500 text-xs px-4 py-1.5 text-center select-none font-medium">
+        <div className="shrink-0 bg-amber-500/10 border-b border-amber-500/20 text-amber-500 text-xs px-4 py-1.5 text-center select-none font-medium">
           You&apos;re offline. Reconnecting to chat...
         </div>
       )}
