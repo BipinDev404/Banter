@@ -13,12 +13,14 @@ import {
   FolderPlus,
   ArrowRight,
   MessageSquare,
+  Link2,
 } from 'lucide-react';
-import { FriendItem, FriendRequest, GroupItem } from '../types';
-import { getAvatarForUser, getGroupAvatar, renderAvatarIcon } from '../lib/avatars';
+import { FriendItem, FriendRequest, GroupItem, PrivateChatRequest } from '../types';
+import { getAvatarForUser, getGroupAvatar } from '../lib/avatars';
 import { OnlineUserItem } from './OnlineUsersModal';
 import { UserAvatar } from './UserAvatar';
 import { CreateGroupModal } from './CreateGroupModal';
+import { GroupInfoModal } from './GroupInfoModal';
 import { FriendAlertData } from './FriendAlertModal';
 
 interface FriendsModalProps {
@@ -28,6 +30,9 @@ interface FriendsModalProps {
   groups: GroupItem[];
   incomingRequests: FriendRequest[];
   sentRequests: FriendRequest[];
+  incomingGroupInvites?: PrivateChatRequest[];
+  onAcceptGroupInvite?: (req: PrivateChatRequest) => void;
+  onDeclineGroupInvite?: (req: PrivateChatRequest) => void;
   onAcceptRequest: (req: FriendRequest) => void;
   onDeclineRequest: (req: FriendRequest) => void;
   onSendRequest: (targetSessionId: string, targetUserName: string, avatarId?: string) => Promise<{ success: boolean; message: string }>;
@@ -38,13 +43,24 @@ interface FriendsModalProps {
     name: string,
     memberIds: string[],
     memberList: { sessionId: string; userName: string; avatarId?: string }[],
-    avatarId?: string
+    avatarId?: string,
+    allowSoloWhilePending?: boolean
   ) => Promise<{ success: boolean; group?: GroupItem; message?: string }>;
+  onAddFriendsToGroup?: (
+    groupId: string,
+    friendsToAdd: { sessionId: string; userName: string; avatarId?: string }[]
+  ) => Promise<boolean>;
+  onSendGroupInvite?: (
+    targetSessionId: string,
+    targetUserName: string,
+    group: { id: string; name: string; avatarId?: string }
+  ) => Promise<boolean>;
   onLeaveGroup: (groupId: string) => void;
   onlineUsers: OnlineUserItem[];
   currentSessionId: string;
   isDarkMode?: boolean;
   onShowFriendPopup?: (data: FriendAlertData) => void;
+  onOpenShareLink?: (group?: GroupItem) => void;
 }
 
 type FriendsTab = 'friends' | 'groups' | 'requests';
@@ -56,6 +72,9 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
   groups = [],
   incomingRequests = [],
   sentRequests = [],
+  incomingGroupInvites = [],
+  onAcceptGroupInvite,
+  onDeclineGroupInvite,
   onAcceptRequest,
   onDeclineRequest,
   onSendRequest,
@@ -63,17 +82,22 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
   onStartDirectChat,
   onOpenGroupChat,
   onCreateGroup,
+  onAddFriendsToGroup,
+  onSendGroupInvite,
   onLeaveGroup,
   onlineUsers = [],
   currentSessionId,
   isDarkMode = false,
   onShowFriendPopup,
+  onOpenShareLink,
 }) => {
   const [activeTab, setActiveTab] = useState<FriendsTab>('friends');
   const [searchQuery, setSearchQuery] = useState('');
   const [usernameInput, setUsernameInput] = useState('');
   const [addFeedback, setAddFeedback] = useState<{ message: string; isError?: boolean } | null>(null);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [manageGroupTarget, setManageGroupTarget] = useState<GroupItem | null>(null);
+  const [confirmLeaveGroupId, setConfirmLeaveGroupId] = useState<string | null>(null);
 
   // Online status set for fast lookup
   const onlineSessionIds = useMemo(() => {
@@ -239,12 +263,19 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
             >
               <Users className="w-3.5 h-3.5" />
               <span>Groups</span>
+              {incomingGroupInvites.length > 0 && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              )}
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  activeTab === 'groups' ? 'bg-white/25 text-white' : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-500'
+                  incomingGroupInvites.length > 0
+                    ? 'bg-emerald-500 text-white font-bold'
+                    : activeTab === 'groups'
+                    ? 'bg-white/25 text-white'
+                    : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-500'
                 }`}
               >
-                {groups.length}
+                {incomingGroupInvites.length > 0 ? incomingGroupInvites.length : groups.length}
               </span>
             </button>
 
@@ -417,6 +448,25 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                     />
                   </div>
 
+                  {onOpenShareLink && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenShareLink();
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 active:scale-95 ${
+                        isDarkMode
+                          ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
+                      }`}
+                      title="Create shareable temporary group link"
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Share Link</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setIsCreateGroupOpen(true)}
@@ -427,27 +477,107 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                   </button>
                 </div>
 
+                {/* Pending Group Invitations Banner */}
+                {incomingGroupInvites.length > 0 && (
+                  <div className="space-y-2 shrink-0">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-500 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Group Invites ({incomingGroupInvites.length})</span>
+                    </span>
+                    <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                      {incomingGroupInvites.map((inv) => {
+                        const grpAvatar = getGroupAvatar(inv.groupAvatarId, inv.groupName || 'Group');
+                        return (
+                          <div
+                            key={inv.id}
+                            className={`p-3 rounded-2xl border flex items-center justify-between gap-2.5 ${
+                              isDarkMode
+                                ? 'bg-emerald-950/25 border-emerald-800/50'
+                                : 'bg-emerald-50/70 border-emerald-200'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <UserAvatar avatar={grpAvatar} size="sm" />
+                              <div className="min-w-0">
+                                <span className="text-xs font-bold block truncate">
+                                  {inv.groupName || 'Group Invite'}
+                                </span>
+                                <span className="text-[10.5px] text-neutral-400 block truncate">
+                                  Invited by {inv.fromUserName} • Auto-friend on accept
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {onDeclineGroupInvite && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeclineGroupInvite(inv)}
+                                  className="px-2 py-1.5 rounded-xl border border-neutral-300 dark:border-neutral-700 text-[11px] font-medium text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800 cursor-pointer"
+                                >
+                                  Decline
+                                </button>
+                              )}
+                              {onAcceptGroupInvite && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onAcceptGroupInvite(inv);
+                                    onClose();
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer shadow-xs"
+                                >
+                                  <Check className="w-3 h-3 stroke-[2.5]" />
+                                  <span>Accept</span>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Groups List */}
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
                   {groups.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center p-6 text-neutral-400">
                       <div className="w-14 h-14 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center mb-3">
                         <FolderPlus className="w-7 h-7 stroke-[2]" />
                       </div>
                       <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 mb-1">
-                        No groups created yet
+                        No groups yet
                       </p>
                       <p className="text-xs text-neutral-400 max-w-xs mb-4">
-                        Create custom groups with your friends for workgroups, projects, gaming, or hangouts!
+                        Create a group with your friends or invite anyone currently online — accepting makes you friends automatically!
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => setIsCreateGroupOpen(true)}
-                        className="px-4 py-2 rounded-2xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4 stroke-[2.5]" />
-                        <span>Create Your First Group</span>
-                      </button>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsCreateGroupOpen(true)}
+                          className="px-4 py-2 rounded-2xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4 stroke-[2.5]" />
+                          <span>Create Group</span>
+                        </button>
+                        {onOpenShareLink && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onOpenShareLink();
+                            }}
+                            className={`px-4 py-2 rounded-2xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                              isDarkMode
+                                ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border-emerald-500/20'
+                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                            }`}
+                          >
+                            <Link2 className="w-4 h-4" />
+                            <span>Share Temp Link</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : filteredGroups.length === 0 ? (
                     <div className="py-12 text-center text-neutral-400 text-xs">
@@ -456,6 +586,10 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                   ) : (
                     filteredGroups.map((grp) => {
                       const groupAvatar = getGroupAvatar(grp.avatarId, grp.name);
+                      const onlinePeersCount = grp.members.filter(
+                        (mId) => mId !== currentSessionId && onlineSessionIds.has(mId)
+                      ).length;
+                      const isConfirmingLeave = confirmLeaveGroupId === grp.id;
 
                       return (
                         <div
@@ -464,7 +598,7 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                             onOpenGroupChat(grp);
                             onClose();
                           }}
-                          className={`p-3 rounded-2xl border flex items-center justify-between gap-3 transition-colors cursor-pointer group ${
+                          className={`p-3 rounded-2xl border flex items-center justify-between gap-2.5 transition-colors cursor-pointer group ${
                             isDarkMode
                               ? 'bg-neutral-900/60 border-neutral-800 hover:bg-neutral-850 hover:border-neutral-700'
                               : 'bg-neutral-50/70 border-neutral-200 hover:bg-neutral-100 hover:border-neutral-300'
@@ -472,43 +606,116 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
                         >
                           {/* Avatar + Info */}
                           <div className="flex items-center gap-3 min-w-0">
-                            <UserAvatar avatar={groupAvatar} size="md" />
+                            <UserAvatar
+                              avatar={groupAvatar}
+                              size="md"
+                              isOnline={onlinePeersCount > 0}
+                              showOnlineBadge={onlinePeersCount > 0}
+                            />
                             <div className="flex flex-col min-w-0">
-                              <span className="text-sm font-semibold truncate text-neutral-900 dark:text-neutral-100">
-                                {grp.name}
-                              </span>
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-sm font-semibold truncate text-neutral-900 dark:text-neutral-100">
+                                  {grp.name}
+                                </span>
+                                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded-full bg-[#007AFF]/15 text-[#007AFF] shrink-0">
+                                  {grp.members.length}
+                                </span>
+                                {grp.isTemporary && (
+                                  <span className="inline-flex items-center gap-0.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 shrink-0">
+                                    <Clock className="w-2.5 h-2.5" />
+                                    Temp
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-[11px] text-neutral-400 truncate">
-                                {grp.lastMessage || `${grp.members.length} members • Created by ${grp.creatorName}`}
+                                {onlinePeersCount > 0
+                                  ? `${onlinePeersCount} online • `
+                                  : ''}
+                                {grp.lastMessage || `Created by ${grp.creatorName}`}
                               </span>
                             </div>
                           </div>
 
                           {/* Actions */}
                           <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onOpenGroupChat(grp);
-                                onClose();
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs active:scale-95"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
-                              <span>Chat</span>
-                            </button>
+                            {isConfirmingLeave ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmLeaveGroupId(null)}
+                                  className="px-2 py-1 rounded-xl border border-neutral-300 dark:border-neutral-700 text-[11px] text-neutral-400 cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onLeaveGroup(grp.id);
+                                    setConfirmLeaveGroupId(null);
+                                  }}
+                                  className="px-2.5 py-1 rounded-xl bg-red-500 hover:bg-red-600 text-white text-[11px] font-bold cursor-pointer"
+                                >
+                                  Leave
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {onOpenShareLink && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      onClose();
+                                      onOpenShareLink(grp);
+                                    }}
+                                    className={`p-1.5 rounded-xl transition-colors cursor-pointer active:scale-95 ${
+                                      isDarkMode
+                                        ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400'
+                                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
+                                    }`}
+                                    title="Share group invite link"
+                                  >
+                                    <Link2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(`Leave group "${grp.name}"?`)) {
-                                  onLeaveGroup(grp.id);
-                                }
-                              }}
-                              className="p-1.5 rounded-xl text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                              title="Leave group"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                                {(onAddFriendsToGroup || onSendGroupInvite) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setManageGroupTarget(grp)}
+                                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer active:scale-95 ${
+                                      isDarkMode
+                                        ? 'bg-white/10 hover:bg-white/15 text-neutral-200'
+                                        : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-800'
+                                    }`}
+                                    title="Add friends or online users to this group"
+                                  >
+                                    <UserPlus className="w-3.5 h-3.5" />
+                                    <span className="hidden sm:inline">Add</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onOpenGroupChat(grp);
+                                    onClose();
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs active:scale-95"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
+                                  <span>Chat</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmLeaveGroupId(grp.id)}
+                                  className="p-1.5 rounded-xl text-neutral-400 hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                                  title="Leave group"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -752,7 +959,37 @@ export const FriendsModal: React.FC<FriendsModalProps> = ({
         isOpen={isCreateGroupOpen}
         onClose={() => setIsCreateGroupOpen(false)}
         friends={friends}
+        onlineUsers={onlineUsers}
         onCreateGroup={onCreateGroup}
+        onSendGroupInvite={onSendGroupInvite}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Add Members / Group Details Modal from Groups Tab */}
+      <GroupInfoModal
+        isOpen={!!manageGroupTarget}
+        onClose={() => setManageGroupTarget(null)}
+        group={
+          manageGroupTarget
+            ? groups.find((g) => g.id === manageGroupTarget.id) || manageGroupTarget
+            : null
+        }
+        currentSessionId={currentSessionId}
+        onLeaveGroup={onLeaveGroup}
+        friends={friends}
+        onlineUsers={onlineUsers}
+        onAddFriendsToGroup={onAddFriendsToGroup}
+        onSendGroupInvite={onSendGroupInvite}
+        onShareGroupLink={
+          onOpenShareLink
+            ? (grp) => {
+                setManageGroupTarget(null);
+                onClose();
+                onOpenShareLink(grp);
+              }
+            : undefined
+        }
+        initialShowAddMembers={true}
         isDarkMode={isDarkMode}
       />
     </>

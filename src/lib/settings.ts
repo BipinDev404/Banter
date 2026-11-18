@@ -17,6 +17,7 @@ export interface AppSettings {
   friendsOnlyNotifications: boolean;
   messageDensity: MessageDensity;
   avatarId: string;
+  friendlyUiMode: boolean;
 }
 
 export interface ThemeOption {
@@ -169,6 +170,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   friendsOnlyNotifications: false,
   messageDensity: 'comfortable',
   avatarId: 'c_fox',
+  friendlyUiMode: false,
 };
 
 const STORAGE_KEY = 'banter_app_settings_v2';

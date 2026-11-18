@@ -33,6 +33,10 @@ import {
   OnlineUsersModal,
   FriendsModal,
   GroupInfoModal,
+  CreateGroupModal,
+  FriendlyHomeView,
+  ShareLinkModal,
+  JoinLinkModal,
   LightboxModal,
   MessageActionsModal,
   PrivateChatConfirmationModal,
@@ -42,7 +46,7 @@ import {
   InAppPushNotification,
 } from '@/components';
 import { FriendAlertData } from '@/components/FriendAlertModal';
-import { ChatMessage, GroupItem } from '@/types';
+import { ChatMessage, GroupItem, PrivateChatRequest } from '@/types';
 import { playMessagePopSound } from '@/lib/sound';
 import { AppSettings, loadSavedSettings, saveSettings, getFontOption } from '@/lib/settings';
 import {
@@ -62,6 +66,13 @@ export default function App() {
   const [isOnlineUsersOpen, setIsOnlineUsersOpen] = useState<boolean>(false);
   const [isFriendsOpen, setIsFriendsOpen] = useState<boolean>(false);
   const [isGroupInfoOpen, setIsGroupInfoOpen] = useState<boolean>(false);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState<boolean>(false);
+  const [isShareLinkOpen, setIsShareLinkOpen] = useState<boolean>(false);
+  const [shareLinkGroupTarget, setShareLinkGroupTarget] = useState<GroupItem | null>(null);
+  const [friendlyView, setFriendlyView] = useState<'home' | 'chat'>('home');
+  const [pendingJoinGroupId, setPendingJoinGroupId] = useState<string | null>(null);
+  const [invitePreviewGroup, setInvitePreviewGroup] = useState<GroupItem | null>(null);
+  const [autoJoinGroupId, setAutoJoinGroupId] = useState<string | null>(null);
   const [lightboxImage, setLightboxImage] = useState<{ url: string; name: string } | null>(null);
   const [actionsMsg, setActionsMsg] = useState<ChatMessage | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -220,7 +231,7 @@ export default function App() {
 
       const currentSettings = settingsRef.current;
       const currentFriends = friendsRef.current;
-      const isSenderFriend = currentFriends.some((f) => f.sessionId === msg.userId);
+      const isSenderFriend = currentFriends.some((f) => f.friendSessionId === msg.userId);
 
       // Check friends-only notification preference
       if (currentSettings.friendsOnlyNotifications && !isSenderFriend && !context?.isDirect) {
@@ -288,45 +299,14 @@ export default function App() {
     [sessionId]
   );
 
-  // Presence hook with custom Apple vector avatar synchronization
-  const { onlineCount, notifications, otherUsers, onlineUsers, markViewLoaded } = usePresence({
-    sessionId,
-    userName,
-    avatarId: settings.avatarId,
-    enabled: isEntered,
-  });
-
-  // Global Messages hook
-  const {
-    messages: globalMessages,
-    sendMessage: sendGlobalMessage,
-    editMessage: editGlobalMessage,
-    deleteMessage: deleteGlobalMessage,
-    toggleReaction: toggleGlobalReaction,
-    loading: loadingGlobal,
-    hasMore: hasMoreGlobal,
-    loadMoreMessages: loadMoreGlobalMessages,
-    isOffline,
-    errorMessage: globalErrorMessage,
-    clearError: clearGlobalError,
-  } = useMessages({
-    userId: sessionId,
-    userName,
-    avatarId: settings.avatarId,
-    enabled: isEntered,
-    otherUsers,
-    onViewLoaded: markViewLoaded,
-    onNewMessage: (msg) => {
-      triggerChatAlert(msg);
-    },
-  });
-
-  // Real-time 1-on-1 Direct Chat hook
+  // Real-time 1-on-1 Direct Chat & Group Confirmation hook
   const {
     incomingRequest,
+    incomingGroupInvites,
     activePrivateChat,
     privateMessages,
     requestPrivateChat,
+    sendGroupInvite,
     acceptPrivateChat,
     declinePrivateChat,
     leavePrivateChat,
@@ -354,6 +334,7 @@ export default function App() {
     sendFriendRequest,
     acceptFriendRequest,
     declineFriendRequest,
+    ensureFriendship,
     removeFriend,
     isFriend,
   } = useFriends({
@@ -361,6 +342,112 @@ export default function App() {
     userName,
     avatarId: settings.avatarId,
     enabled: isEntered,
+  });
+
+  // Real-time Friend Groups hook
+  const {
+    groups,
+    activeGroup,
+    groupMessages,
+    groupNotice,
+    createGroup,
+    createTemporaryGroupLink,
+    getGroupPreview,
+    joinGroup,
+    addFriendsToGroup,
+    leaveGroup,
+    openGroupChat,
+    leaveGroupChat,
+    sendGroupMessage,
+    toggleGroupReaction,
+    editGroupMessage,
+    deleteGroupMessage,
+  } = useGroups({
+    sessionId,
+    userName,
+    avatarId: settings.avatarId,
+    enabled: isEntered,
+  });
+
+  // Detect ?join=<groupId> invite links in URL
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const joinId = params.get('join')?.trim();
+    if (!joinId || !/^[a-zA-Z0-9_-]+$/.test(joinId)) return;
+
+    setPendingJoinGroupId(joinId);
+    let cancelled = false;
+    getGroupPreview(joinId).then((preview) => {
+      if (cancelled) return;
+      if (preview) {
+        setInvitePreviewGroup(preview);
+      } else {
+        setPendingJoinGroupId(null);
+        try {
+          window.history.replaceState({}, '', window.location.pathname);
+        } catch {}
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [getGroupPreview]);
+
+  // Execute pending group join once userName and session are active
+  useEffect(() => {
+    if (!isEntered || !userName || !autoJoinGroupId) return;
+    const targetId = autoJoinGroupId;
+    setAutoJoinGroupId(null);
+
+    joinGroup(targetId).then((joined) => {
+      if (joined) {
+        leavePrivateChat();
+        openGroupChat(joined);
+      }
+      try {
+        window.history.replaceState({}, '', window.location.pathname);
+      } catch {}
+    });
+  }, [isEntered, userName, autoJoinGroupId, joinGroup, leavePrivateChat, openGroupChat]);
+
+  const isViewingGlobalChat =
+    !activePrivateChat && !activeGroup && (!settings.friendlyUiMode || friendlyView === 'chat');
+
+  // Presence hook with custom Apple vector avatar synchronization
+  const { onlineCount, notifications, otherUsers, onlineUsers, markViewLoaded } = usePresence({
+    sessionId,
+    userName,
+    avatarId: settings.avatarId,
+    enabled: isEntered,
+    canMarkGlobalRead: isViewingGlobalChat,
+  });
+
+  // Global Messages hook
+  const {
+    messages: globalMessages,
+    sendMessage: sendGlobalMessage,
+    editMessage: editGlobalMessage,
+    deleteMessage: deleteGlobalMessage,
+    toggleReaction: toggleGlobalReaction,
+    loading: loadingGlobal,
+    hasMore: hasMoreGlobal,
+    loadMoreMessages: loadMoreGlobalMessages,
+    isOffline,
+    errorMessage: globalErrorMessage,
+    clearError: clearGlobalError,
+  } = useMessages({
+    userId: sessionId,
+    userName,
+    avatarId: settings.avatarId,
+    enabled: isEntered,
+    canMarkRead: isViewingGlobalChat,
+    otherUsers,
+    onViewLoaded: markViewLoaded,
+    onNewMessage: (msg) => {
+      triggerChatAlert(msg);
+    },
   });
 
   // Keep friendsRef in sync for notification engine
@@ -434,7 +521,7 @@ export default function App() {
     prevIncomingReqCountRef.current = incomingRequests.length;
   }, [incomingRequests, isEntered, settings]);
 
-  // Alert for incoming 1-on-1 private chat request
+  // Alert for incoming 1-on-1 private chat or group invite request
   const prevChatReqIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!isEntered || !incomingRequest) return;
@@ -444,11 +531,19 @@ export default function App() {
       if (settings.vibrationEnabled) triggerNotificationVibrate('friend_request');
 
       if (document.hidden) {
-        flashTabTitleAlert(incomingRequest.fromUserName, 'Started a private chat');
+        const isGrp = incomingRequest.requestType === 'group';
+        flashTabTitleAlert(
+          incomingRequest.fromUserName,
+          isGrp ? `Invited you to ${incomingRequest.groupName || 'a group'}` : 'Started a private chat'
+        );
         if (settings.systemNotificationsEnabled) {
           sendSystemNotification({
-            title: `💬 ${incomingRequest.fromUserName} • Private Chat Request`,
-            body: `${incomingRequest.fromUserName} wants to start a 1-on-1 direct chat with you on Banter.`,
+            title: isGrp
+              ? `👥 ${incomingRequest.fromUserName} • Group Invite`
+              : `💬 ${incomingRequest.fromUserName} • Private Chat Request`,
+            body: isGrp
+              ? `${incomingRequest.fromUserName} invited you to join ${incomingRequest.groupName || 'a group'} on Banter.`
+              : `${incomingRequest.fromUserName} wants to start a 1-on-1 direct chat with you on Banter.`,
             tag: `creq_${incomingRequest.id}`,
             onClick: () => {
               window.focus();
@@ -492,26 +587,25 @@ export default function App() {
     [sendFriendRequest]
   );
 
-  // Real-time Friend Groups hook
-  const {
-    groups,
-    activeGroup,
-    groupMessages,
-    groupNotice,
-    createGroup,
-    leaveGroup,
-    openGroupChat,
-    leaveGroupChat,
-    sendGroupMessage,
-    toggleGroupReaction,
-    editGroupMessage,
-    deleteGroupMessage,
-  } = useGroups({
-    sessionId,
-    userName,
-    avatarId: settings.avatarId,
-    enabled: isEntered,
-  });
+  // One-click accept for both Private Chat and Group Invite confirmation boxes (auto-friends automatically)
+  const handleAcceptConfirmationRequest = useCallback(
+    async (req: PrivateChatRequest) => {
+      await ensureFriendship(req.fromSessionId, req.fromUserName, req.fromAvatarId);
+
+      if (req.requestType === 'group' && req.groupId) {
+        await acceptPrivateChat(req);
+        const joined = await joinGroup(req.groupId);
+        if (joined) {
+          leavePrivateChat();
+          openGroupChat(joined);
+        }
+      } else {
+        leaveGroupChat();
+        await acceptPrivateChat(req);
+      }
+    },
+    [ensureFriendship, acceptPrivateChat, joinGroup, leavePrivateChat, openGroupChat, leaveGroupChat]
+  );
 
   // Keep active room refs in sync for notification filter
   activePrivateChatRef.current = activePrivateChat;
@@ -532,7 +626,7 @@ export default function App() {
     chatId: activeChatId,
   });
 
-  // Determine active conversation messages (Group > Direct > Global) with live delivery/read status
+  // Determine active conversation messages (Group > Direct > Global) with accurate per-room read/delivery status
   const currentMessages = useMemo(() => {
     if (activeGroup) {
       const onlineGroupPeers = (otherUsers || []).filter((u) =>
@@ -540,15 +634,12 @@ export default function App() {
       );
       return groupMessages.map((msg) => {
         if (msg.userId !== sessionId) return msg;
-        const readers = onlineGroupPeers.filter((u) => {
-          const readTime = Math.max(u.lastReadAt || 0, u.lastSeen || 0);
-          return readTime >= (msg.createdAt || 0) - 3000;
-        });
+        const isRead = !msg.isOptimistic && Boolean(msg.isRead);
+        const isDelivered = !msg.isOptimistic && (isRead || onlineGroupPeers.length > 0);
         return {
           ...msg,
-          isDelivered: onlineGroupPeers.length > 0,
-          isRead: readers.length > 0,
-          readBy: readers.map((r) => r.userName),
+          isDelivered,
+          isRead,
         };
       });
     }
@@ -559,16 +650,13 @@ export default function App() {
       );
       return privateMessages.map((msg) => {
         if (msg.userId !== sessionId) return msg;
-        const isDelivered = Boolean(partner);
-        const isRead = Boolean(
-          partner &&
-            Math.max(partner.lastReadAt || 0, partner.lastSeen || 0) >= (msg.createdAt || 0) - 3000
-        );
+        const isRead = !msg.isOptimistic && Boolean(msg.isRead);
+        const isDelivered = !msg.isOptimistic && Boolean(isRead || partner);
         return {
           ...msg,
           isDelivered,
           isRead,
-          readBy: isRead && partner ? [partner.userName] : [],
+          readBy: isRead ? [activePrivateChat.partnerName] : [],
         };
       });
     }
@@ -610,14 +698,33 @@ export default function App() {
       }
       setSettings((prev) => ({ ...prev, avatarId }));
     }
+    if (pendingJoinGroupId) {
+      setAutoJoinGroupId(pendingJoinGroupId);
+      setPendingJoinGroupId(null);
+      setInvitePreviewGroup(null);
+    }
     setUserName(cleanName);
     setIsEntered(true);
   };
 
-  const handleUpdateSettings = useCallback((newSettings: AppSettings) => {
-    setSettings(newSettings);
-    saveSettings(newSettings);
-  }, []);
+  const handleUpdateSettings = useCallback(
+    (newSettings: AppSettings) => {
+      if (!settings.friendlyUiMode && newSettings.friendlyUiMode) {
+        setFriendlyView('home');
+      }
+      setSettings(newSettings);
+      saveSettings(newSettings);
+    },
+    [settings.friendlyUiMode]
+  );
+
+  const handleDeleteMyMessagesOnly = useCallback(async () => {
+    try {
+      await deleteUserChatMessages(sessionId);
+    } catch (e) {
+      console.error('Error deleting user chat messages:', e);
+    }
+  }, [sessionId]);
 
   const handleSaveNewName = (newName: string, newAvatarId?: string) => {
     const cleanName = newName.trim();
@@ -827,12 +934,15 @@ export default function App() {
         onEnter={handleEnterChat}
         initialName={userName}
         initialAvatarId={settings.avatarId}
+        inviteGroup={invitePreviewGroup}
       />
     );
   }
 
   const activeFont = getFontOption(settings.fontStyle);
   const activeToast = friendNotice || groupNotice;
+  const isShowingFriendlyHome =
+    settings.friendlyUiMode && friendlyView === 'home' && !activePrivateChat && !activeGroup;
 
   return (
     <div
@@ -852,7 +962,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Clean Chat Header (No group plus icon on header; full view on private/group/global) */}
+      {/* Clean Chat Header */}
       <ChatHeader
         onlineCount={onlineCount}
         isOffline={isOffline}
@@ -861,48 +971,90 @@ export default function App() {
         onOpenOnlineUsers={() => setIsOnlineUsersOpen(true)}
         onOpenFriends={() => setIsFriendsOpen(true)}
         friendsCount={friends.length}
-        pendingRequestsCount={pendingFriendsCount}
+        pendingRequestsCount={pendingFriendsCount + incomingGroupInvites.length}
         typingUsers={typingUsers}
         isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
         activePrivateChat={activePrivateChat}
-        onLeavePrivateChat={leavePrivateChat}
+        onLeavePrivateChat={() => {
+          leavePrivateChat();
+          if (settings.friendlyUiMode) setFriendlyView('home');
+        }}
         isPartnerOnline={isPartnerOnline}
         activeGroup={activeGroup}
-        onLeaveGroupChat={leaveGroupChat}
+        onLeaveGroupChat={() => {
+          leaveGroupChat();
+          if (settings.friendlyUiMode) setFriendlyView('home');
+        }}
         onOpenGroupInfo={() => setIsGroupInfoOpen(true)}
+        onBackToHome={
+          settings.friendlyUiMode && friendlyView === 'chat' && !activePrivateChat && !activeGroup
+            ? () => setFriendlyView('home')
+            : undefined
+        }
       />
 
-      {/* Main Message Thread (Global, Group, or Direct Friend Chat) */}
-      <MessageList
-        messages={currentMessages}
-        systemNotifications={activePrivateChat || activeGroup ? [] : notifications}
-        currentUserId={sessionId}
-        loading={loadingGlobal}
-        hasMore={activePrivateChat || activeGroup ? false : hasMoreGlobal}
-        onLoadMore={activePrivateChat || activeGroup ? () => {} : loadMoreGlobalMessages}
-        onReact={handleToggleReaction}
-        onReplyTo={handleReplyTo}
-        onOpenImage={(url, name) => setLightboxImage({ url, name })}
-        onOpenActionsModal={(msg) => setActionsMsg(msg)}
-        typingUsers={typingUsers}
-        isDarkMode={isDarkMode}
-        settings={settings}
-      />
+      {/* Main Content: Friendly Home Hub OR Active Chat Thread */}
+      {isShowingFriendlyHome ? (
+        <FriendlyHomeView
+          onlineCount={onlineCount}
+          globalMessages={globalMessages}
+          friends={friends}
+          groups={groups}
+          onlineUsers={onlineUsers}
+          currentSessionId={sessionId}
+          incomingGroupInvites={incomingGroupInvites}
+          pendingFriendsCount={pendingFriendsCount}
+          onOpenUniversalChat={() => setFriendlyView('chat')}
+          onOpenFriendChat={handleStartDirectChat}
+          onOpenGroupChat={handleOpenGroupChat}
+          onOpenFriendsModal={() => setIsFriendsOpen(true)}
+          onOpenCreateGroup={() => setIsCreateGroupOpen(true)}
+          onOpenShareLink={() => {
+            setShareLinkGroupTarget(null);
+            setIsShareLinkOpen(true);
+          }}
+          onShareGroupLink={(grp) => {
+            setShareLinkGroupTarget(grp);
+            setIsShareLinkOpen(true);
+          }}
+          onAcceptGroupInvite={handleAcceptConfirmationRequest}
+          onDeclineGroupInvite={declinePrivateChat}
+          isDarkMode={isDarkMode}
+        />
+      ) : (
+        <>
+          {/* Main Message Thread (Global, Group, or Direct Friend Chat) */}
+          <MessageList
+            messages={currentMessages}
+            systemNotifications={activePrivateChat || activeGroup ? [] : notifications}
+            currentUserId={sessionId}
+            loading={loadingGlobal}
+            hasMore={activePrivateChat || activeGroup ? false : hasMoreGlobal}
+            onLoadMore={activePrivateChat || activeGroup ? () => {} : loadMoreGlobalMessages}
+            onReact={handleToggleReaction}
+            onReplyTo={handleReplyTo}
+            onOpenImage={(url, name) => setLightboxImage({ url, name })}
+            onOpenActionsModal={(msg) => setActionsMsg(msg)}
+            typingUsers={typingUsers}
+            isDarkMode={isDarkMode}
+            settings={settings}
+          />
 
-      {/* Clean Message Input Bar */}
-      <MessageInput
-        onSendMessage={handleSendMessage}
-        disabled={isOffline}
-        errorMessage={globalErrorMessage}
-        onClearError={clearGlobalError}
-        replyTarget={replyTarget}
-        onClearReply={() => setReplyTarget(null)}
-        onTyping={notifyTyping}
-        onStopTyping={stopTyping}
-        isDarkMode={isDarkMode}
-        themeAccent={settings.themeAccent}
-      />
+          {/* Clean Message Input Bar */}
+          <MessageInput
+            onSendMessage={handleSendMessage}
+            disabled={isOffline}
+            errorMessage={globalErrorMessage}
+            onClearError={clearGlobalError}
+            replyTarget={replyTarget}
+            onClearReply={() => setReplyTarget(null)}
+            onTyping={notifyTyping}
+            onStopTyping={stopTyping}
+            isDarkMode={isDarkMode}
+            themeAccent={settings.themeAccent}
+          />
+        </>
+      )}
 
       {/* Profile Modal */}
       <SettingsModal
@@ -911,9 +1063,15 @@ export default function App() {
         currentName={userName}
         onSaveName={handleSaveNewName}
         onClearData={handleClearData}
+        onDeleteMyMessagesOnly={handleDeleteMyMessagesOnly}
+        onOpenShareLink={() => {
+          setShareLinkGroupTarget(null);
+          setIsShareLinkOpen(true);
+        }}
         settings={settings}
         onUpdateSettings={handleUpdateSettings}
         isDarkMode={isDarkMode}
+        onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
       />
 
       {/* Online Users List Modal */}
@@ -944,6 +1102,9 @@ export default function App() {
         groups={groups}
         incomingRequests={incomingRequests}
         sentRequests={sentRequests}
+        incomingGroupInvites={incomingGroupInvites}
+        onAcceptGroupInvite={handleAcceptConfirmationRequest}
+        onDeclineGroupInvite={declinePrivateChat}
         onAcceptRequest={acceptFriendRequest}
         onDeclineRequest={declineFriendRequest}
         onSendRequest={sendFriendRequest}
@@ -951,11 +1112,67 @@ export default function App() {
         onStartDirectChat={handleStartDirectChat}
         onOpenGroupChat={handleOpenGroupChat}
         onCreateGroup={createGroup}
+        onAddFriendsToGroup={addFriendsToGroup}
+        onSendGroupInvite={sendGroupInvite}
         onLeaveGroup={leaveGroup}
         onlineUsers={onlineUsers}
         currentSessionId={sessionId}
         isDarkMode={isDarkMode}
         onShowFriendPopup={(data) => setFriendAlertData(data)}
+        onOpenShareLink={(grp) => {
+          setShareLinkGroupTarget(grp || null);
+          setIsShareLinkOpen(true);
+        }}
+      />
+
+      {/* Create Group Modal (from Friendly Home or shortcuts) */}
+      <CreateGroupModal
+        isOpen={isCreateGroupOpen}
+        onClose={() => setIsCreateGroupOpen(false)}
+        friends={friends}
+        onlineUsers={onlineUsers}
+        onCreateGroup={createGroup}
+        onSendGroupInvite={sendGroupInvite}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Share Temporary Group Link Modal */}
+      <ShareLinkModal
+        isOpen={isShareLinkOpen}
+        onClose={() => {
+          setIsShareLinkOpen(false);
+          setShareLinkGroupTarget(null);
+        }}
+        onCreateTempGroupLink={createTemporaryGroupLink}
+        onOpenGroupChat={handleOpenGroupChat}
+        existingGroup={shareLinkGroupTarget}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Join Group via Shared Invite Link Modal (when already logged in) */}
+      <JoinLinkModal
+        isOpen={isEntered && !!invitePreviewGroup && !!pendingJoinGroupId}
+        group={invitePreviewGroup}
+        currentName={userName}
+        onJoin={async (displayName) => {
+          const clean = displayName.trim();
+          if (clean && clean !== userName) {
+            handleSaveNewName(clean);
+          }
+          if (pendingJoinGroupId) {
+            setAutoJoinGroupId(pendingJoinGroupId);
+          }
+          setPendingJoinGroupId(null);
+          setInvitePreviewGroup(null);
+        }}
+        onClose={() => {
+          setPendingJoinGroupId(null);
+          setInvitePreviewGroup(null);
+          try {
+            window.history.replaceState({}, '', window.location.pathname);
+          } catch {}
+        }}
+        isDarkMode={isDarkMode}
       />
 
       {/* Group Info Modal */}
@@ -965,15 +1182,23 @@ export default function App() {
         group={activeGroup}
         currentSessionId={sessionId}
         onLeaveGroup={leaveGroup}
+        friends={friends}
+        onlineUsers={onlineUsers}
+        onAddFriendsToGroup={addFriendsToGroup}
+        onSendGroupInvite={sendGroupInvite}
+        onShareGroupLink={(grp) => {
+          setShareLinkGroupTarget(grp);
+          setIsShareLinkOpen(true);
+        }}
         isDarkMode={isDarkMode}
       />
 
-      {/* Private Chat Confirmation Request Modal */}
+      {/* Private Chat & Group Invite Confirmation Request Modal */}
       <PrivateChatConfirmationModal
         isOpen={!!incomingRequest}
         request={incomingRequest}
         onAccept={() => {
-          if (incomingRequest) acceptPrivateChat(incomingRequest);
+          if (incomingRequest) handleAcceptConfirmationRequest(incomingRequest);
         }}
         onDecline={() => {
           if (incomingRequest) declinePrivateChat(incomingRequest);

@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PrivateChatRequest } from '../types';
-import { MessageSquare, Check } from 'lucide-react';
-import { getAvatarForUser } from '../lib/avatars';
+import { MessageSquare, Users, Check, UserPlus } from 'lucide-react';
+import { getAvatarForUser, getGroupAvatar } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
 
 interface PrivateChatConfirmationModalProps {
@@ -20,11 +20,18 @@ export const PrivateChatConfirmationModal: React.FC<PrivateChatConfirmationModal
   onDecline,
   isDarkMode = true,
 }) => {
-  const avatar = request ? getAvatarForUser(request.fromSessionId, request.fromUserName, request.fromAvatarId) : null;
+  const senderAvatar = request
+    ? getAvatarForUser(request.fromSessionId, request.fromUserName, request.fromAvatarId)
+    : null;
+  const isGroupInvite = request?.requestType === 'group';
+  const groupAvatar =
+    request && isGroupInvite
+      ? getGroupAvatar(request.groupAvatarId, request.groupName || 'Group')
+      : null;
 
   return (
     <AnimatePresence>
-      {isOpen && request && avatar && (
+      {isOpen && request && senderAvatar && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -51,33 +58,69 @@ export const PrivateChatConfirmationModal: React.FC<PrivateChatConfirmationModal
 
             {/* Top Icon Badge */}
             <div className="flex justify-center mb-3.5">
-              <div className="w-14 h-14 rounded-2xl bg-[#007AFF]/15 text-[#007AFF] flex items-center justify-center shadow-xs border border-[#007AFF]/25">
-                <MessageSquare className="w-7 h-7 stroke-[2.2]" />
-              </div>
+              {isGroupInvite && groupAvatar ? (
+                <div className="relative">
+                  <UserAvatar avatar={groupAvatar} size="lg" />
+                  <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#007AFF] text-white flex items-center justify-center border-2 border-[#1c1c1e]">
+                    <Users className="w-3.5 h-3.5 stroke-[2.2]" />
+                  </span>
+                </div>
+              ) : (
+                <div className="w-14 h-14 rounded-2xl bg-[#007AFF]/15 text-[#007AFF] flex items-center justify-center shadow-xs border border-[#007AFF]/25">
+                  <MessageSquare className="w-7 h-7 stroke-[2.2]" />
+                </div>
+              )}
             </div>
 
             {/* Modal Title */}
-            <h3 id="private-req-title" className={`text-lg font-bold text-center tracking-tight mb-1 ${
-              isDarkMode ? 'text-white' : 'text-neutral-900'
-            }`}>
-              Private Chat Request
+            <h3
+              id="private-req-title"
+              className={`text-lg font-bold text-center tracking-tight mb-1 ${
+                isDarkMode ? 'text-white' : 'text-neutral-900'
+              }`}
+            >
+              {isGroupInvite ? 'Group Invite Confirmation' : 'Private Chat Request'}
             </h3>
 
             {/* Request Details */}
             <div className="text-center mb-5">
-              <div className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl border my-2 ${
-                isDarkMode ? 'bg-[#2c2c2e]/80 border-white/10 text-white' : 'bg-neutral-100 border-black/5 text-neutral-900'
-              }`}>
-                <UserAvatar avatar={avatar} size="xs" />
-                <span className="text-xs font-bold">
-                  {request.fromUserName}
-                </span>
+              <div
+                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl border my-2 ${
+                  isDarkMode
+                    ? 'bg-[#2c2c2e]/80 border-white/10 text-white'
+                    : 'bg-neutral-100 border-black/5 text-neutral-900'
+                }`}
+              >
+                <UserAvatar avatar={senderAvatar} size="xs" />
+                <span className="text-xs font-bold">{request.fromUserName}</span>
               </div>
-              <p className={`text-xs leading-relaxed max-w-xs mx-auto mt-1 ${
-                isDarkMode ? 'text-neutral-400' : 'text-neutral-500'
-              }`}>
-                wants to start a direct 1-on-1 conversation with you.
-              </p>
+
+              {isGroupInvite ? (
+                <p
+                  className={`text-xs leading-relaxed max-w-xs mx-auto mt-1 ${
+                    isDarkMode ? 'text-neutral-300' : 'text-neutral-600'
+                  }`}
+                >
+                  invited you to join{' '}
+                  <strong className={isDarkMode ? 'text-white' : 'text-neutral-900'}>
+                    {request.groupName || 'a group'}
+                  </strong>
+                  .
+                </p>
+              ) : (
+                <p
+                  className={`text-xs leading-relaxed max-w-xs mx-auto mt-1 ${
+                    isDarkMode ? 'text-neutral-400' : 'text-neutral-500'
+                  }`}
+                >
+                  wants to start a direct 1-on-1 conversation with you.
+                </p>
+              )}
+
+              <div className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full bg-emerald-500/12 text-emerald-500 dark:text-emerald-400 text-[11px] font-semibold">
+                <UserPlus className="w-3 h-3 stroke-[2.3]" />
+                <span>Accepting automatically adds as friend</span>
+              </div>
             </div>
 
             {/* Actions - Touch targets optimized for phone screens (min-h-[44px]) */}
@@ -99,7 +142,7 @@ export const PrivateChatConfirmationModal: React.FC<PrivateChatConfirmationModal
                 className="flex-1 min-h-[44px] py-2.5 px-4 rounded-2xl text-xs font-bold bg-[#007AFF] hover:bg-[#0071E3] text-white shadow-md transition-all cursor-pointer active:scale-[0.98] flex items-center justify-center gap-1.5"
               >
                 <Check className="w-4 h-4 stroke-[2.5]" />
-                <span>Accept Chat</span>
+                <span>{isGroupInvite ? 'Accept & Join' : 'Accept & Chat'}</span>
               </button>
             </div>
           </motion.div>

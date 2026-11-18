@@ -6,6 +6,7 @@ import {
   orderBy,
   onSnapshot,
   doc,
+  getDoc,
   setDoc,
   deleteDoc,
   updateDoc,
@@ -35,6 +36,7 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
   const onNewMessageRef = useRef(onNewMessage);
   onNewMessageRef.current = onNewMessage;
   const groupInitialLoadRef = useRef<Record<string, boolean>>({});
+  const markedGroupReadRef = useRef<Set<string>>(new Set());
 
   // 1. Listen for all groups that the current user is a member of
   useEffect(() => {
@@ -50,9 +52,20 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
+        const now = Date.now();
         const list: GroupItem[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
+          const createdAt = data.createdAt?.toMillis ? data.createdAt.toMillis() : now;
+          const lastMessageAt = data.lastMessageAt?.toMillis ? data.lastMessageAt.toMillis() : undefined;
+          const isTemporary = Boolean(data.isTemporary);
+
+          // Auto-expire temporary link groups after 2 hours of inactivity
+          if (isTemporary && now - (lastMessageAt || createdAt) > TWO_HOURS_MS) {
+            deleteDoc(docSnap.ref).catch(() => {});
+            return;
+          }
+
           list.push({
             id: docSnap.id,
             name: data.name || 'Group',
@@ -61,9 +74,10 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
             creatorName: data.creatorName || 'Member',
             members: Array.isArray(data.members) ? data.members : [],
             memberDetails: data.memberDetails || {},
-            createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+            createdAt,
             lastMessage: data.lastMessage || undefined,
-            lastMessageAt: data.lastMessageAt?.toMillis ? data.lastMessageAt.toMillis() : undefined,
+            lastMessageAt,
+            isTemporary,
           });
         });
 
@@ -94,7 +108,8 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
       name: string,
       memberIds: string[],
       memberList: { sessionId: string; userName: string; avatarId?: string }[],
-      groupAvatarId?: string
+      groupAvatarId?: string,
+      allowSoloWhilePending = false
     ): Promise<{ success: boolean; group?: GroupItem; message?: string }> => {
       const cleanName = name.trim();
       if (!cleanName) {
@@ -102,8 +117,8 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
       }
 
       const allMemberIds = Array.from(new Set([sessionId, ...memberIds]));
-      if (allMemberIds.length < 2) {
-        return { success: false, message: 'Select at least one friend to start a group.' };
+      if (allMemberIds.length < 2 && !allowSoloWhilePending) {
+        return { success: false, message: 'Select at least one friend or online user to start a group.' };
       }
 
       const groupId = `grp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -206,6 +221,197 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
     [sessionId, groups, activeGroup]
   );
 
+  // 3b. Join an existing group (e.g. when accepting a group invitation confirmation box)
+  const joinGroup = useCallback(
+    async (groupId: string): Promise<GroupItem | null> => {
+      if (!groupId || !sessionId) return null;
+      try {
+        const groupRef = doc(db, 'groups', groupId);
+        await setDoc(
+          groupRef,
+          {
+            members: arrayUnion(sessionId),
+            memberDetails: {
+              [sessionId]: {
+                sessionId,
+                userName,
+                avatarId: avatarId || null,
+              },
+            },
+          },
+          { merge: true }
+        );
+
+        const snap = await getDoc(groupRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          const joinedGroup: GroupItem = {
+            id: snap.id,
+            name: data.name || 'Group',
+            avatarId: data.avatarId || undefined,
+            createdBy: data.createdBy || '',
+            creatorName: data.creatorName || 'Member',
+            members: Array.isArray(data.members) ? data.members : [sessionId],
+            memberDetails: data.memberDetails || {},
+            createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+            lastMessage: data.lastMessage || undefined,
+            lastMessageAt: data.lastMessageAt?.toMillis ? data.lastMessageAt.toMillis() : undefined,
+            isTemporary: Boolean(data.isTemporary),
+          };
+          setGroupNotice(`Joined group "${joinedGroup.name}"!`);
+          setTimeout(() => setGroupNotice(null), 3000);
+          return joinedGroup;
+        }
+        return null;
+      } catch (err) {
+        console.error('Join group error:', err);
+        return null;
+      }
+    },
+    [sessionId, userName, avatarId]
+  );
+
+  // 3b2. Create a shareable temporary group chat room & return its join link
+  const createTemporaryGroupLink = useCallback(
+    async (
+      name: string,
+      groupAvatarId?: string
+    ): Promise<{ success: boolean; group?: GroupItem; shareUrl?: string; message?: string }> => {
+      const cleanName = name.trim();
+      if (!cleanName) {
+        return { success: false, message: 'Please enter a group name for the link.' };
+      }
+      if (cleanName.length > 40) {
+        return { success: false, message: 'Group name must be 40 characters or fewer.' };
+      }
+
+      const groupId = `tgrp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const memberDetails: Record<string, GroupMemberInfo> = {
+        [sessionId]: {
+          sessionId,
+          userName,
+          avatarId: avatarId || undefined,
+        },
+      };
+
+      try {
+        const groupDocRef = doc(db, 'groups', groupId);
+        await setDoc(groupDocRef, {
+          id: groupId,
+          name: cleanName,
+          avatarId: groupAvatarId || 'clay_g_squad',
+          createdBy: sessionId,
+          creatorName: userName,
+          members: [sessionId],
+          memberDetails,
+          isTemporary: true,
+          createdAt: serverTimestamp(),
+          lastMessage: `Temporary link created by ${userName}`,
+          lastMessageAt: serverTimestamp(),
+        });
+
+        const createdGroup: GroupItem = {
+          id: groupId,
+          name: cleanName,
+          avatarId: groupAvatarId || 'clay_g_squad',
+          createdBy: sessionId,
+          creatorName: userName,
+          members: [sessionId],
+          memberDetails,
+          createdAt: Date.now(),
+          lastMessage: `Temporary link created by ${userName}`,
+          lastMessageAt: Date.now(),
+          isTemporary: true,
+        };
+
+        const baseUrl =
+          typeof window !== 'undefined'
+            ? `${window.location.origin}${window.location.pathname}`
+            : '';
+        const shareUrl = `${baseUrl}?join=${encodeURIComponent(groupId)}`;
+
+        setGroupNotice(`Temporary chat link created for "${cleanName}"!`);
+        setTimeout(() => setGroupNotice(null), 3000);
+
+        return { success: true, group: createdGroup, shareUrl };
+      } catch (err) {
+        console.error('Create temporary group link error:', err);
+        return { success: false, message: 'Could not create chat link. Check connection.' };
+      }
+    },
+    [sessionId, userName, avatarId]
+  );
+
+  // 3b3. Fetch a group preview by ID (for shared join links)
+  const getGroupPreview = useCallback(async (groupId: string): Promise<GroupItem | null> => {
+    if (!groupId || !/^[a-zA-Z0-9_-]+$/.test(groupId)) return null;
+    try {
+      const snap = await getDoc(doc(db, 'groups', groupId));
+      if (!snap.exists()) return null;
+      const data = snap.data();
+      return {
+        id: snap.id,
+        name: data.name || 'Temporary Group',
+        avatarId: data.avatarId || undefined,
+        createdBy: data.createdBy || '',
+        creatorName: data.creatorName || 'Member',
+        members: Array.isArray(data.members) ? data.members : [],
+        memberDetails: data.memberDetails || {},
+        createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
+        lastMessage: data.lastMessage || undefined,
+        lastMessageAt: data.lastMessageAt?.toMillis ? data.lastMessageAt.toMillis() : undefined,
+        isTemporary: Boolean(data.isTemporary),
+      };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // 3c. Directly add confirmed friends to an existing group
+  const addFriendsToGroup = useCallback(
+    async (
+      groupId: string,
+      friendsToAdd: { sessionId: string; userName: string; avatarId?: string }[]
+    ): Promise<boolean> => {
+      if (!groupId || friendsToAdd.length === 0) return false;
+      try {
+        const groupRef = doc(db, 'groups', groupId);
+        const memberDetailsPatch: Record<string, GroupMemberInfo> = {};
+        const idsToAdd: string[] = [];
+
+        friendsToAdd.forEach((f) => {
+          idsToAdd.push(f.sessionId);
+          memberDetailsPatch[f.sessionId] = {
+            sessionId: f.sessionId,
+            userName: f.userName,
+            avatarId: f.avatarId || undefined,
+          };
+        });
+
+        await setDoc(
+          groupRef,
+          {
+            members: arrayUnion(...idsToAdd),
+            memberDetails: memberDetailsPatch,
+          },
+          { merge: true }
+        );
+
+        setGroupNotice(
+          friendsToAdd.length === 1
+            ? `Added ${friendsToAdd[0].userName} to group!`
+            : `Added ${friendsToAdd.length} friends to group!`
+        );
+        setTimeout(() => setGroupNotice(null), 3000);
+        return true;
+      } catch (err) {
+        console.error('Add friends to group error:', err);
+        return false;
+      }
+    },
+    []
+  );
+
   // 4. Open group conversation
   const openGroupChat = useCallback((group: GroupItem) => {
     setActiveGroup(group);
@@ -241,12 +447,19 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
 
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          const timestamp = data.createdAt?.toMillis ? data.createdAt.toMillis() : now;
+          const hasServerTimestamp = Boolean(data.createdAt?.toMillis);
+          const timestamp = hasServerTimestamp ? data.createdAt.toMillis() : now;
 
           if (timestamp < cutoff) {
             deleteDoc(docSnap.ref).catch(() => {});
             return;
           }
+
+          const readByIds: string[] = Array.isArray(data.readBy) ? data.readBy : [];
+          const peerReaderIds = readByIds.filter((id: string) => id && id !== data.userId);
+          const readerNames = peerReaderIds.map(
+            (id: string) => activeGroup.memberDetails?.[id]?.userName || 'Member'
+          );
 
           loaded.push({
             id: docSnap.id,
@@ -254,6 +467,10 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
             userName: data.userName || 'Anonymous',
             message: data.message || '',
             createdAt: timestamp,
+            isOptimistic: !hasServerTimestamp || docSnap.metadata.hasPendingWrites,
+            isRead: peerReaderIds.length > 0,
+            readBy: readerNames,
+            readByIds,
             attachment: data.attachment || undefined,
             reactions: Array.isArray(data.reactions) ? data.reactions : [],
             replyTo: data.replyTo || undefined,
@@ -302,6 +519,52 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
     return () => unsubscribe();
   }, [activeGroup, sessionId]);
 
+  // 6b. Mark incoming group messages as read ONLY when actively viewing this group chat
+  const markVisibleGroupMessagesRead = useCallback(() => {
+    if (!activeGroup || !sessionId) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+
+    const unreadIncoming = groupMessages.filter(
+      (m) =>
+        !m.isOptimistic &&
+        m.userId !== sessionId &&
+        !(m.readByIds || []).includes(sessionId) &&
+        !markedGroupReadRef.current.has(m.id)
+    );
+
+    if (unreadIncoming.length === 0) return;
+
+    unreadIncoming.forEach((m) => {
+      markedGroupReadRef.current.add(m.id);
+      setDoc(
+        doc(db, 'group_messages', m.id),
+        {
+          readBy: arrayUnion(sessionId),
+        },
+        { merge: true }
+      ).catch(() => {
+        markedGroupReadRef.current.delete(m.id);
+      });
+    });
+  }, [activeGroup, groupMessages, sessionId]);
+
+  useEffect(() => {
+    markVisibleGroupMessagesRead();
+  }, [markVisibleGroupMessagesRead]);
+
+  useEffect(() => {
+    if (!activeGroup) return;
+    const handleFocus = () => {
+      markVisibleGroupMessagesRead();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [activeGroup, markVisibleGroupMessagesRead]);
+
   // 7. Send message in active group
   const sendGroupMessage = useCallback(
     async (
@@ -327,6 +590,8 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
         replyTo,
         createdAt: now,
         isOptimistic: true,
+        isRead: false,
+        readByIds: [sessionId],
       };
 
       setGroupMessages((prev) => [...prev, optimisticMsg]);
@@ -339,6 +604,7 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
           userName: userName.slice(0, 20),
           avatarId: avatarId || null,
           message: trimmed,
+          readBy: [sessionId],
           createdAt: serverTimestamp(),
         };
 
@@ -427,6 +693,10 @@ export function useGroups({ sessionId, userName, avatarId, enabled, onNewMessage
     loadingMessages,
     groupNotice,
     createGroup,
+    createTemporaryGroupLink,
+    getGroupPreview,
+    joinGroup,
+    addFriendsToGroup,
     leaveGroup,
     openGroupChat,
     leaveGroupChat,

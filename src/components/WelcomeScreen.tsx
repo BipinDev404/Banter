@@ -15,30 +15,41 @@ import {
   RefreshCw,
   Sparkles,
   ChevronDown,
+  Link2,
+  Users,
 } from 'lucide-react';
 import { BanterLogo } from './BanterLogo';
-import { getAvatarForUser } from '../lib/avatars';
+import { getAvatarForUser, getGroupAvatar } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
 import { DeveloperGitHubCard } from './DeveloperGitHubCard';
 import { fetchGitHubProfile } from '../lib/github';
+import { GroupItem } from '../types';
 
 interface WelcomeScreenProps {
   onEnter: (name: string, avatarId?: string) => void;
   initialName?: string;
   initialAvatarId?: string;
+  inviteGroup?: GroupItem | null;
 }
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onEnter,
   initialName = '',
   initialAvatarId = '',
+  inviteGroup = null,
 }) => {
   const [name, setName] = useState(initialName || '');
   const [error, setError] = useState<string | null>(null);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(Boolean(inviteGroup));
   const [isWhatIsBanterOpen, setIsWhatIsBanterOpen] = useState(false);
   const [isSyncingGitHub, setIsSyncingGitHub] = useState(false);
   const [githubSyncedUser, setGithubSyncedUser] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (inviteGroup) {
+      setIsLoginModalOpen(true);
+    }
+  }, [inviteGroup]);
 
   const handleSyncGitHubProfile = async () => {
     const handle = name.trim() || 'Bipindev404';
@@ -170,14 +181,32 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
           <DeveloperGitHubCard username="Bipindev404" isDarkMode={true} />
         </div>
 
+        {/* Invite Banner when arriving from a shared chat link */}
+        {inviteGroup && (
+          <div className="mb-4 p-3.5 rounded-2xl bg-[#007AFF]/12 border border-[#007AFF]/30 flex items-center gap-3">
+            <UserAvatar avatar={getGroupAvatar(inviteGroup.avatarId, inviteGroup.name)} size="md" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5 text-[#007AFF] shrink-0" />
+                <span className="text-xs font-bold text-white truncate">
+                  Join &ldquo;{inviteGroup.name}&rdquo;
+                </span>
+              </div>
+              <span className="text-[11px] text-neutral-300 block truncate">
+                Temporary group chat • Enter your name to join
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* 2. Next: Prominent Start Chat Button */}
         <button
           type="button"
           onClick={() => setIsLoginModalOpen(true)}
           className="w-full py-4 px-6 rounded-2xl bg-[#007AFF] hover:bg-[#0071E3] active:scale-[0.98] text-white font-extrabold text-base transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xl shadow-blue-500/25"
         >
-          <MessageSquare className="w-5 h-5 stroke-[2.2]" />
-          <span>Start Chat</span>
+          {inviteGroup ? <Users className="w-5 h-5 stroke-[2.2]" /> : <MessageSquare className="w-5 h-5 stroke-[2.2]" />}
+          <span>{inviteGroup ? `Join "${inviteGroup.name}"` : 'Start Chat'}</span>
           <ArrowRight className="w-5 h-5 stroke-[2.5]" />
         </button>
       </div>
@@ -216,9 +245,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
             {/* Modal Title */}
             <div className="mb-5 text-center">
-              <h2 className="text-xl font-extrabold text-white">Join Banter</h2>
+              <h2 className="text-xl font-extrabold text-white">
+                {inviteGroup ? `Join "${inviteGroup.name}"` : 'Join Banter'}
+              </h2>
               <p className="text-xs text-neutral-400 mt-1">
-                Enter your username to start chatting
+                {inviteGroup
+                  ? 'Enter your name to enter this temporary group chat'
+                  : 'Enter your username to start chatting'}
               </p>
             </div>
 

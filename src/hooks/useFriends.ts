@@ -291,6 +291,68 @@ export function useFriends({ sessionId, userName, avatarId, enabled }: UseFriend
     []
   );
 
+  // 6b. Automatically establish mutual friendship (e.g. on one-click accept of chat or group confirmation)
+  const ensureFriendship = useCallback(
+    async (
+      targetSessionId: string,
+      targetUserName: string,
+      targetAvatarId?: string
+    ): Promise<boolean> => {
+      if (!targetSessionId || targetSessionId === sessionId) return false;
+
+      const alreadyFriend = friends.some((f) => f.friendSessionId === targetSessionId);
+      const sortedPair = [sessionId, targetSessionId].sort().join('_');
+      const friendshipId = `fs_${sortedPair}`;
+      const pendingRequestId = `freq_${sortedPair}`;
+
+      try {
+        await setDoc(
+          doc(db, 'friendships', friendshipId),
+          {
+            friendshipId,
+            participants: [sessionId, targetSessionId],
+            [sessionId]: {
+              userName,
+              avatarId: avatarId || null,
+            },
+            [targetSessionId]: {
+              userName: targetUserName,
+              avatarId: targetAvatarId || null,
+            },
+            createdAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        // Clean up any stale pending friend request between these users
+        deleteDoc(doc(db, 'friend_requests', pendingRequestId)).catch(() => {});
+
+        if (!alreadyFriend) {
+          const newFriend: FriendItem = {
+            friendSessionId: targetSessionId,
+            friendName: targetUserName,
+            avatarId: targetAvatarId,
+            addedAt: Date.now(),
+          };
+          setFriends((prev) => {
+            const next = [newFriend, ...prev.filter((f) => f.friendSessionId !== targetSessionId)];
+            persistFriends(next);
+            return next;
+          });
+          setActionNotice(`You and ${targetUserName} are now friends!`);
+          setTimeout(() => setActionNotice(null), 3500);
+        }
+
+        setIncomingRequests((prev) => prev.filter((r) => r.fromSessionId !== targetSessionId));
+        return true;
+      } catch (err) {
+        console.error('Ensure friendship error:', err);
+        return false;
+      }
+    },
+    [sessionId, userName, avatarId, friends, persistFriends]
+  );
+
   // 7. Remove Friend
   const removeFriend = useCallback(
     async (friendSessionId: string) => {
@@ -338,6 +400,7 @@ export function useFriends({ sessionId, userName, avatarId, enabled }: UseFriend
     sendFriendRequest,
     acceptFriendRequest,
     declineFriendRequest,
+    ensureFriendship,
     removeFriend,
     isFriend,
     hasPendingRequestWith,

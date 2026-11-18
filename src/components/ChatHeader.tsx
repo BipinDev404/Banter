@@ -1,4 +1,4 @@
-import { User, MessageSquare, ArrowLeft, Users, Info, Sun, Moon, Bell } from 'lucide-react';
+import { ArrowLeft, Users, Info, Bell } from 'lucide-react';
 import { BanterLogo } from './BanterLogo';
 import { TypingUser, PrivateChatRoom, GroupItem } from '../types';
 import { getAvatarForUser, getGroupAvatar } from '../lib/avatars';
@@ -15,13 +15,13 @@ interface ChatHeaderProps {
   pendingRequestsCount?: number;
   typingUsers?: TypingUser[];
   isDarkMode?: boolean;
-  onToggleDarkMode?: () => void;
   activePrivateChat?: PrivateChatRoom | null;
   onLeavePrivateChat?: () => void;
   isPartnerOnline?: boolean;
   activeGroup?: GroupItem | null;
   onLeaveGroupChat?: () => void;
   onOpenGroupInfo?: () => void;
+  onBackToHome?: () => void;
   onOpenNotifications?: () => void;
   notificationPermission?: NotificationPermission;
 }
@@ -37,13 +37,13 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   pendingRequestsCount = 0,
   typingUsers = [],
   isDarkMode = true,
-  onToggleDarkMode,
   activePrivateChat,
   onLeavePrivateChat,
   isPartnerOnline = false,
   activeGroup,
   onLeaveGroupChat,
   onOpenGroupInfo,
+  onBackToHome,
   onOpenNotifications,
   notificationPermission = 'default',
 }) => {
@@ -143,8 +143,26 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             </span>
           </div>
         ) : (
-          /* Global Room Brand Header */
+          /* Global Room / Friendly Home Brand Header */
           <div className="flex items-center gap-1.5 min-w-0">
+            {onBackToHome && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBackToHome();
+                }}
+                className={`p-2 rounded-full active:scale-90 transition-all cursor-pointer shrink-0 mr-0.5 ${
+                  isDarkMode
+                    ? 'bg-white/10 hover:bg-white/15 text-white'
+                    : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+                }`}
+                title="Back to Home"
+                aria-label="Back to Home"
+              >
+                <ArrowLeft className="w-4.5 h-4.5 stroke-[2.5]" />
+              </button>
+            )}
             <BanterLogo size="md" showText={true} isDarkMode={isDarkMode} />
           </div>
         )}
@@ -166,22 +184,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             aria-label="Group info & members"
           >
             <Info className="w-4 h-4 stroke-[2.2]" />
-          </button>
-        )}
-
-        {/* Return to Global Chat Button if in Private/Group Mode */}
-        {(activePrivateChat || activeGroup) && (
-          <button
-            type="button"
-            onClick={activeGroup ? onLeaveGroupChat : onLeavePrivateChat}
-            className={`hidden sm:flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border active:scale-95 transition-all cursor-pointer ${
-              isDarkMode
-                ? 'bg-[#1c1c1e] hover:bg-[#2c2c2e] border-white/10 text-neutral-300 hover:text-white'
-                : 'bg-neutral-100 hover:bg-neutral-200 border-black/5 text-neutral-700 hover:text-black'
-            }`}
-            title="Return to Global Public Chat"
-          >
-            <span>Exit Chat</span>
           </button>
         )}
 
@@ -251,27 +253,6 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <Bell className="w-4 h-4 stroke-[2.2]" />
             {notificationPermission !== 'granted' && (
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#007AFF] ring-2 ring-white dark:ring-black animate-pulse" />
-            )}
-          </button>
-        )}
-
-        {/* Theme Toggle Button (Dark / White Mode) */}
-        {onToggleDarkMode && (
-          <button
-            type="button"
-            onClick={onToggleDarkMode}
-            className={`w-9 h-9 rounded-full flex items-center justify-center border transition-all cursor-pointer active:scale-90 ${
-              isDarkMode
-                ? 'bg-[#1c1c1e] hover:bg-[#2c2c2e] border-white/10 text-amber-400 hover:text-amber-300'
-                : 'bg-neutral-100 hover:bg-neutral-200 border-black/5 text-neutral-700 hover:text-black'
-            }`}
-            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-            aria-label="Toggle theme"
-          >
-            {isDarkMode ? (
-              <Sun className="w-4 h-4 stroke-[2.2]" />
-            ) : (
-              <Moon className="w-4 h-4 stroke-[2.2]" />
             )}
           </button>
         )}

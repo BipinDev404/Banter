@@ -17,6 +17,7 @@ export interface ChatMessage {
   isDelivered?: boolean;
   isRead?: boolean;
   readBy?: string[];
+  readByIds?: string[];
   reactions?: string[];
   avatarId?: string;
   attachment?: ChatAttachment;
@@ -45,6 +46,7 @@ export interface UserPresence {
 
 export interface PrivateChatRequest {
   id: string;
+  requestType?: 'chat' | 'group';
   fromSessionId: string;
   fromUserName: string;
   fromAvatarId?: string;
@@ -52,6 +54,9 @@ export interface PrivateChatRequest {
   toUserName: string;
   status: 'pending' | 'accepted' | 'declined';
   roomId: string;
+  groupId?: string;
+  groupName?: string;
+  groupAvatarId?: string;
   createdAt: number;
 }
 
@@ -104,6 +109,7 @@ export interface GroupItem {
   createdAt: number;
   lastMessage?: string;
   lastMessageAt?: number;
+  isTemporary?: boolean;
 }
 
 export interface BookmarkedMessage {

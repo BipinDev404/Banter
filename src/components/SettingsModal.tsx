@@ -1,9 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, User, Clock, AlertTriangle, Trash2, Loader2, Volume2, Smartphone } from 'lucide-react';
+import {
+  X,
+  Check,
+  User,
+  Clock,
+  AlertTriangle,
+  Trash2,
+  Loader2,
+  Volume2,
+  Smartphone,
+  Moon,
+  Sun,
+  LayoutGrid,
+  Link2,
+  Palette,
+} from 'lucide-react';
 import { getAvatarForUser } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
-import { AppSettings } from '../lib/settings';
+import { AppSettings, THEME_OPTIONS } from '../lib/settings';
 import { playNotificationChime, triggerNotificationVibrate } from '../lib/notifications';
 
 interface SettingsModalProps {
@@ -12,6 +27,8 @@ interface SettingsModalProps {
   currentName: string;
   onSaveName: (newName: string, newAvatarId?: string) => void;
   onClearData: () => Promise<void> | void;
+  onDeleteMyMessagesOnly?: () => Promise<void> | void;
+  onOpenShareLink?: () => void;
   settings: AppSettings;
   onUpdateSettings?: (newSettings: AppSettings) => void;
   isDarkMode?: boolean;
@@ -24,13 +41,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   currentName,
   onSaveName,
   onClearData,
+  onDeleteMyMessagesOnly,
+  onOpenShareLink,
   settings,
   onUpdateSettings,
   isDarkMode = true,
+  onToggleDarkMode,
 }) => {
   const [nameInput, setNameInput] = useState(currentName);
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showDeleteMsgsConfirm, setShowDeleteMsgsConfirm] = useState(false);
+  const [isDeletingMsgs, setIsDeletingMsgs] = useState(false);
+  const [deletedMsgsSuccess, setDeletedMsgsSuccess] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
@@ -39,6 +62,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setNameInput(currentName);
       setError(null);
       setSaveSuccess(false);
+      setShowDeleteMsgsConfirm(false);
+      setIsDeletingMsgs(false);
+      setDeletedMsgsSuccess(false);
       setShowResetConfirm(false);
       setIsResetting(false);
     }
@@ -64,7 +90,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTimeout(() => {
       setSaveSuccess(false);
       onClose();
-    }, 1000);
+    }, 900);
   };
 
   const currentAvatar = getAvatarForUser(undefined, nameInput || currentName, settings.avatarId || 'h_alex');
@@ -106,7 +132,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
                 <div>
                   <h2 id="profile-modal-title" className="text-base font-bold tracking-tight leading-none">
-                    Profile & Username
+                    Profile &amp; Preferences
                   </h2>
                 </div>
               </div>
@@ -125,7 +151,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             {/* Modal Body */}
-            <div className="p-5 space-y-5 overflow-y-auto">
+            <div className="p-5 space-y-4 overflow-y-auto">
               {/* Avatar Preview Card */}
               <div className={`p-4 rounded-2xl border flex items-center gap-3.5 ${
                 isDarkMode ? 'bg-[#2c2c2e]/70 border-white/10' : 'bg-neutral-100 border-black/5'
@@ -134,6 +160,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="min-w-0 flex-1">
                   <p className="text-base font-extrabold truncate">
                     {nameInput.trim() || currentName}
+                  </p>
+                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                    {settings.friendlyUiMode ? 'Friendly Home UI Active' : 'Classic Room View'} • {isDarkMode ? 'Dark Mode' : 'Light Mode'}
                   </p>
                 </div>
               </div>
@@ -163,7 +192,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {error && <p className="mt-1.5 text-xs text-red-400 font-medium ml-0.5">{error}</p>}
                 </div>
 
-                {/* Audio & Haptics Section (Only Sound & Vibration Toggles) */}
+                {/* Appearance & Mode Section (Theme Toggle + Friendly UI Mode + Accent) */}
+                <div className={`p-4 rounded-2xl border space-y-3.5 ${
+                  isDarkMode ? 'bg-[#2c2c2e]/60 border-white/10' : 'bg-neutral-50 border-black/5'
+                }`}>
+                  {/* Dark / Light Theme Toggle (Only shown in Profile) */}
+                  {onToggleDarkMode && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          isDarkMode ? 'bg-amber-500/15 text-amber-400' : 'bg-indigo-500/10 text-indigo-600'
+                        }`}>
+                          {isDarkMode ? <Moon className="w-4 h-4 stroke-[2.2]" /> : <Sun className="w-4 h-4 stroke-[2.2]" />}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold">Dark Mode</span>
+                          <span className="text-[11px] text-neutral-400">
+                            {isDarkMode ? 'OLED dark theme active' : 'Bright light theme active'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={onToggleDarkMode}
+                        className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
+                          isDarkMode ? 'bg-[#007AFF]' : 'bg-neutral-400'
+                        }`}
+                        aria-label="Toggle dark mode"
+                      >
+                        <div
+                          className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                            isDarkMode ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Friendly UI Mode Toggle */}
+                  <div className="flex items-center justify-between pt-3 border-t border-black/5 dark:border-white/10">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
+                        <LayoutGrid className="w-4 h-4 stroke-[2.2]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold">Friendly UI Mode</span>
+                        <span className="text-[11px] text-neutral-400">
+                          Simple home: Universal, Friends &amp; Groups
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onUpdateSettings) {
+                          onUpdateSettings({
+                            ...settings,
+                            friendlyUiMode: !settings.friendlyUiMode,
+                          });
+                        }
+                      }}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
+                        settings.friendlyUiMode ? 'bg-emerald-500' : 'bg-neutral-600'
+                      }`}
+                      aria-label="Toggle Friendly UI Mode"
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          settings.friendlyUiMode ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Theme Accent Color Swatches */}
+                  <div className="pt-3 border-t border-black/5 dark:border-white/10 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Palette className="w-3.5 h-3.5 text-neutral-400" />
+                      <span className="text-xs font-bold">Chat Accent Color</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {THEME_OPTIONS.map((opt) => {
+                        const active = settings.themeAccent === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            onClick={() =>
+                              onUpdateSettings?.({ ...settings, themeAccent: opt.id })
+                            }
+                            style={{ backgroundColor: opt.hex }}
+                            className={`w-6 h-6 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
+                              active ? 'scale-110 ring-2 ring-white ring-offset-2 ring-offset-[#1c1c1e]' : 'opacity-80 hover:opacity-100'
+                            }`}
+                            title={opt.name}
+                            aria-label={opt.name}
+                          >
+                            {active && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audio & Haptics Section */}
                 <div className={`p-4 rounded-2xl border space-y-3.5 ${
                   isDarkMode ? 'bg-[#2c2c2e]/60 border-white/10' : 'bg-neutral-50 border-black/5'
                 }`}>
@@ -240,6 +375,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
                 </div>
 
+                {/* Shareable Temporary Chat Link Launcher */}
+                {onOpenShareLink && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenShareLink();
+                    }}
+                    className={`w-full p-3.5 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                      isDarkMode
+                        ? 'bg-[#007AFF]/10 hover:bg-[#007AFF]/15 border-[#007AFF]/25 text-white'
+                        : 'bg-blue-50 hover:bg-blue-100 border-blue-200 text-neutral-900'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 text-left min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-[#007AFF] text-white flex items-center justify-center shrink-0">
+                        <Link2 className="w-4 h-4 stroke-[2.3]" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold block">Create Temporary Chat Link</span>
+                        <span className="text-[11px] text-neutral-400 block truncate">
+                          Share a group link — anyone can enter name &amp; join
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold text-[#007AFF] shrink-0">Create</span>
+                  </button>
+                )}
+
                 {/* Save Button */}
                 <button
                   type="submit"
@@ -255,7 +419,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
                 </button>
 
-                {/* 2-Hour Auto-Purge Notice (Placed directly below Save Username button) */}
+                {/* 2-Hour Auto-Purge Notice */}
                 <div className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 ${
                   isDarkMode
                     ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
@@ -265,17 +429,108 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="text-[11px] leading-tight">
                     <span className="font-bold block">2-Hour Auto-Expiration Active</span>
                     <span className={isDarkMode ? 'text-amber-200/80' : 'text-amber-800'}>
-                      Messages and chat history automatically vanish after 2 hours.
+                      Messages and temporary chats automatically vanish after 2 hours.
                     </span>
                   </div>
                 </div>
               </form>
 
+              {/* Delete My Messages Only (keeps username, friends & groups) */}
+              {onDeleteMyMessagesOnly && (
+                <div className={`pt-3 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
+                  {deletedMsgsSuccess && (
+                    <div className="mb-2.5 p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 text-xs font-semibold flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Your messages were deleted. Your profile &amp; friends are safe.</span>
+                    </div>
+                  )}
+
+                  {!showDeleteMsgsConfirm ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-neutral-400">Delete only your sent messages?</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDeleteMsgsConfirm(true);
+                          setDeletedMsgsSuccess(false);
+                        }}
+                        className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors cursor-pointer py-1.5 px-2.5 rounded-xl hover:bg-amber-500/10 active:scale-95 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete My Messages</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className={`p-4 rounded-2xl border ${
+                        isDarkMode
+                          ? 'bg-amber-500/10 border-amber-500/30 text-white'
+                          : 'bg-amber-50 border-amber-200 text-neutral-900'
+                      } text-left space-y-3`}
+                    >
+                      <div className="flex items-center gap-2 text-amber-400 font-extrabold text-sm">
+                        <AlertTriangle className="w-4 h-4 shrink-0 stroke-[2.2]" />
+                        <span>Confirm Delete My Messages</span>
+                      </div>
+
+                      <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-amber-100/85' : 'text-amber-900'}`}>
+                        This will permanently delete <strong>only messages sent by you</strong> across Universal, Direct, and Group chats. Your username, friends, and groups will not be removed.
+                      </p>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          disabled={isDeletingMsgs}
+                          onClick={async () => {
+                            setIsDeletingMsgs(true);
+                            try {
+                              await onDeleteMyMessagesOnly();
+                              setDeletedMsgsSuccess(true);
+                            } finally {
+                              setIsDeletingMsgs(false);
+                              setShowDeleteMsgsConfirm(false);
+                            }
+                          }}
+                          className="flex-1 py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 active:scale-95 disabled:opacity-50 text-white font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                        >
+                          {isDeletingMsgs ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              <span>Deleting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
+                              <span>Yes, Delete My Messages</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isDeletingMsgs}
+                          onClick={() => setShowDeleteMsgsConfirm(false)}
+                          className={`py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                            isDarkMode
+                              ? 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
+                              : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-700'
+                          }`}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              )}
+
               {/* Reset Session Option with Double Confirmation */}
               <div className={`pt-3 border-t ${isDarkMode ? 'border-white/5' : 'border-black/5'}`}>
                 {!showResetConfirm ? (
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-neutral-500">Need to reset session?</span>
+                    <span className="text-xs text-neutral-500">Need to reset entire session?</span>
                     <button
                       type="button"
                       onClick={() => setShowResetConfirm(true)}
@@ -296,12 +551,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   >
                     <div className="flex items-center gap-2 text-red-500 font-extrabold text-sm">
                       <AlertTriangle className="w-4 h-4 shrink-0 stroke-[2.2]" />
-                      <span>Confirm Session & Message Deletion</span>
+                      <span>Confirm Session &amp; Message Deletion</span>
                     </div>
 
                     <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-red-200/90' : 'text-red-900'}`}>
                       Are you sure you want to reset your session? This action will permanently{' '}
-                      <strong>delete all messages sent by you</strong> across all chats (Global, Direct, and Group chats) and reset your user session.
+                      <strong>delete all messages sent by you</strong> across all chats (Universal, Direct, and Group chats) and reset your user session.
                     </p>
 
                     <div className="flex items-center gap-2 pt-1">
@@ -322,12 +577,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         {isResetting ? (
                           <>
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>Deleting & Resetting...</span>
+                            <span>Deleting &amp; Resetting...</span>
                           </>
                         ) : (
                           <>
                             <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
-                            <span>Yes, Delete My Messages & Reset</span>
+                            <span>Yes, Delete &amp; Reset</span>
                           </>
                         )}
                       </button>

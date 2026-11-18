@@ -9,6 +9,7 @@ import {
   deleteDoc,
   serverTimestamp,
   orderBy,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { ChatMessage, ChatAttachment, PrivateChatRequest, PrivateChatRoom } from '../types';
@@ -22,7 +23,7 @@ interface UsePrivateChatProps {
 }
 
 export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePrivateChatProps) {
-  const [incomingRequest, setIncomingRequest] = useState<PrivateChatRequest | null>(null);
+  const [incomingRequests, setIncomingRequests] = useState<PrivateChatRequest[]>([]);
   const [sentRequestStatus, setSentRequestStatus] = useState<{
     id: string;
     toUserName: string;
@@ -41,13 +42,17 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
   } | null>(null);
 
   const initialPrivateLoadRef = useRef(true);
+  const markedPrivateReadRef = useRef<Set<string>>(new Set());
+
+  const incomingRequest = incomingRequests[0] || null;
+  const incomingGroupInvites = incomingRequests.filter((r) => r.requestType === 'group');
 
   // Helper to generate deterministic private room ID from two session IDs
   const getRoomId = (idA: string, idB: string) => {
     return [idA, idB].sort().join('_room_');
   };
 
-  // 1. Listen for INCOMING private chat requests for me
+  // 1. Listen for INCOMING private chat & group invite requests for me
   useEffect(() => {
     if (!enabled || !sessionId) return;
 
@@ -61,21 +66,27 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        let latestReq: PrivateChatRequest | null = null;
+        const list: PrivateChatRequest[] = [];
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          latestReq = {
+          list.push({
             id: docSnap.id,
+            requestType: data.requestType === 'group' ? 'group' : 'chat',
             fromSessionId: data.fromSessionId,
             fromUserName: data.fromUserName,
+            fromAvatarId: data.fromAvatarId || undefined,
             toSessionId: data.toSessionId,
             toUserName: data.toUserName,
             status: data.status,
             roomId: data.roomId,
+            groupId: data.groupId || undefined,
+            groupName: data.groupName || undefined,
+            groupAvatarId: data.groupAvatarId || undefined,
             createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : Date.now(),
-          };
+          });
         });
-        setIncomingRequest(latestReq);
+        list.sort((a, b) => b.createdAt - a.createdAt);
+        setIncomingRequests(list);
       },
       (err) => {
         console.error('Incoming private requests error:', err);
@@ -152,14 +163,16 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
         if (!docSnap.exists()) return;
         const data = docSnap.data();
         if (data.status === 'accepted') {
-          setActivePrivateChat({
-            roomId: data.roomId,
-            partnerSessionId: data.toSessionId,
-            partnerName: data.toUserName,
-          });
+          if (data.requestType !== 'group') {
+            setActivePrivateChat({
+              roomId: data.roomId,
+              partnerSessionId: data.toSessionId,
+              partnerName: data.toUserName,
+            });
+          }
           setSentRequestStatus(null);
         } else if (data.status === 'declined') {
-          setPrivateError(`${data.toUserName} declined the private chat request.`);
+          setPrivateError(`${data.toUserName} declined the chat request.`);
           setTimeout(() => setSentRequestStatus(null), 3000);
         }
       },
@@ -183,8 +196,10 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
         setPrivateError(null);
         const reqRef = doc(db, 'private_requests', requestId);
         await setDoc(reqRef, {
+          requestType: 'chat',
           fromSessionId: sessionId,
           fromUserName: userName,
+          fromAvatarId: avatarId || null,
           toSessionId: targetSessionId,
           toUserName: targetUserName,
           status: 'pending',
@@ -204,22 +219,61 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
         return false;
       }
     },
-    [sessionId, userName]
+    [sessionId, userName, avatarId]
   );
 
-  // 4. Accept Incoming Private Chat Request
+  // 3b. Send Group Invite Confirmation Request to an online user
+  const sendGroupInvite = useCallback(
+    async (
+      targetSessionId: string,
+      targetUserName: string,
+      group: { id: string; name: string; avatarId?: string }
+    ): Promise<boolean> => {
+      if (!targetSessionId || targetSessionId === sessionId) return false;
+
+      const requestId = `greq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      try {
+        const reqRef = doc(db, 'private_requests', requestId);
+        await setDoc(reqRef, {
+          requestType: 'group',
+          fromSessionId: sessionId,
+          fromUserName: userName,
+          fromAvatarId: avatarId || null,
+          toSessionId: targetSessionId,
+          toUserName: targetUserName,
+          status: 'pending',
+          roomId: group.id,
+          groupId: group.id,
+          groupName: group.name,
+          groupAvatarId: group.avatarId || 'clay_g_squad',
+          createdAt: serverTimestamp(),
+        });
+        return true;
+      } catch (err) {
+        console.error('Failed to send group invite:', err);
+        return false;
+      }
+    },
+    [sessionId, userName, avatarId]
+  );
+
+  // 4. Accept Incoming Private Chat or Group Invite Request
   const acceptPrivateChat = useCallback(
     async (req: PrivateChatRequest) => {
       try {
         const reqRef = doc(db, 'private_requests', req.id);
         await setDoc(reqRef, { status: 'accepted' }, { merge: true });
 
-        setActivePrivateChat({
-          roomId: req.roomId,
-          partnerSessionId: req.fromSessionId,
-          partnerName: req.fromUserName,
-        });
-        setIncomingRequest(null);
+        if (req.requestType !== 'group') {
+          setActivePrivateChat({
+            roomId: req.roomId,
+            partnerSessionId: req.fromSessionId,
+            partnerName: req.fromUserName,
+            partnerAvatarId: req.fromAvatarId,
+          });
+        }
+        setIncomingRequests((prev) => prev.filter((r) => r.id !== req.id));
       } catch (err) {
         console.error('Failed to accept request:', err);
       }
@@ -227,13 +281,13 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
     []
   );
 
-  // 5. Decline Incoming Private Chat Request
+  // 5. Decline Incoming Private Chat or Group Invite Request
   const declinePrivateChat = useCallback(
     async (req: PrivateChatRequest) => {
       try {
         const reqRef = doc(db, 'private_requests', req.id);
         await setDoc(reqRef, { status: 'declined' }, { merge: true });
-        setIncomingRequest(null);
+        setIncomingRequests((prev) => prev.filter((r) => r.id !== req.id));
       } catch (err) {
         console.error('Failed to decline request:', err);
       }
@@ -258,7 +312,6 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
         partnerAvatarId,
       });
       setSentRequestStatus(null);
-      setIncomingRequest(null);
     },
     [sessionId]
   );
@@ -287,12 +340,18 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
 
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          const timestamp = data.createdAt?.toMillis ? data.createdAt.toMillis() : now;
+          const hasServerTimestamp = Boolean(data.createdAt?.toMillis);
+          const timestamp = hasServerTimestamp ? data.createdAt.toMillis() : now;
 
           if (timestamp < cutoff) {
             deleteDoc(docSnap.ref).catch(() => {});
             return;
           }
+
+          const readByIds: string[] = Array.isArray(data.readBy) ? data.readBy : [];
+          const isRead = Boolean(
+            data.isRead || readByIds.some((id: string) => id && id !== data.userId)
+          );
 
           loaded.push({
             id: docSnap.id,
@@ -300,6 +359,9 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
             userName: data.userName || 'Anonymous',
             message: data.message || '',
             createdAt: timestamp,
+            isOptimistic: !hasServerTimestamp || docSnap.metadata.hasPendingWrites,
+            isRead,
+            readByIds,
             attachment: data.attachment || undefined,
             reactions: Array.isArray(data.reactions) ? data.reactions : [],
             replyTo: data.replyTo || undefined,
@@ -319,6 +381,55 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
 
     return () => unsubscribe();
   }, [activePrivateChat]);
+
+  // 7b. Mark incoming private messages as read ONLY when actively viewing this private chat
+  const markVisiblePrivateMessagesRead = useCallback(() => {
+    if (!activePrivateChat || !sessionId) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+
+    const unreadIncoming = privateMessages.filter(
+      (m) =>
+        !m.isOptimistic &&
+        m.userId !== sessionId &&
+        !m.isRead &&
+        !(m.readByIds || []).includes(sessionId) &&
+        !markedPrivateReadRef.current.has(m.id)
+    );
+
+    if (unreadIncoming.length === 0) return;
+
+    unreadIncoming.forEach((m) => {
+      markedPrivateReadRef.current.add(m.id);
+      setDoc(
+        doc(db, 'private_messages', m.id),
+        {
+          isRead: true,
+          readBy: arrayUnion(sessionId),
+          readAt: serverTimestamp(),
+        },
+        { merge: true }
+      ).catch(() => {
+        markedPrivateReadRef.current.delete(m.id);
+      });
+    });
+  }, [activePrivateChat, privateMessages, sessionId]);
+
+  useEffect(() => {
+    markVisiblePrivateMessagesRead();
+  }, [markVisiblePrivateMessagesRead]);
+
+  useEffect(() => {
+    if (!activePrivateChat) return;
+    const handleFocus = () => {
+      markVisiblePrivateMessagesRead();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
+    };
+  }, [activePrivateChat, markVisiblePrivateMessagesRead]);
 
   // 8. Send message in active private room
   const sendPrivateMessage = useCallback(
@@ -344,6 +455,8 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
         replyTo,
         createdAt: now,
         isOptimistic: true,
+        isRead: false,
+        readByIds: [sessionId],
       };
 
       setPrivateMessages((prev) => [...prev, optimisticMsg]);
@@ -356,6 +469,8 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
           userName: userName.slice(0, 20),
           targetSessionId: activePrivateChat.partnerSessionId,
           message: trimmed,
+          isRead: false,
+          readBy: [sessionId],
           createdAt: serverTimestamp(),
         };
 
@@ -431,12 +546,15 @@ export function usePrivateChat({ sessionId, userName, avatarId, enabled }: UsePr
 
   return {
     incomingRequest,
+    incomingRequests,
+    incomingGroupInvites,
     sentRequestStatus,
     activePrivateChat,
     privateMessages,
     loadingPrivate,
     privateError,
     requestPrivateChat,
+    sendGroupInvite,
     acceptPrivateChat,
     declinePrivateChat,
     leavePrivateChat,

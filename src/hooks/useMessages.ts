@@ -19,8 +19,9 @@ interface UseMessagesProps {
   userName: string;
   avatarId?: string;
   enabled: boolean;
+  canMarkRead?: boolean;
   otherUsers?: ActiveUserReader[];
-  onViewLoaded?: () => void;
+  onViewLoaded?: (force?: boolean) => void;
   onNewMessage?: (msg: ChatMessage) => void;
 }
 
@@ -32,6 +33,7 @@ export function useMessages({
   userName,
   avatarId,
   enabled,
+  canMarkRead = true,
   otherUsers = [],
   onViewLoaded,
   onNewMessage,
@@ -40,6 +42,10 @@ export function useMessages({
   const initialLoadDoneRef = useRef(false);
   const onNewMessageRef = useRef(onNewMessage);
   onNewMessageRef.current = onNewMessage;
+  const onViewLoadedRef = useRef(onViewLoaded);
+  onViewLoadedRef.current = onViewLoaded;
+  const canMarkReadRef = useRef(canMarkRead);
+  canMarkReadRef.current = canMarkRead;
   const [messageLimit, setMessageLimit] = useState<number>(50);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -81,6 +87,13 @@ export function useMessages({
     };
   }, []);
 
+  // Mark global chat as read immediately whenever returning to Global Chat view
+  useEffect(() => {
+    if (enabled && canMarkRead && (typeof document === 'undefined' || !document.hidden)) {
+      onViewLoadedRef.current?.(true);
+    }
+  }, [enabled, canMarkRead]);
+
   // 1. Periodic cleanup timer: auto-erase messages older than 2 hours in real time
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
@@ -121,7 +134,8 @@ export function useMessages({
 
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
-          const timestamp = data.createdAt?.toMillis
+          const hasServerTimestamp = Boolean(data.createdAt?.toMillis);
+          const timestamp = hasServerTimestamp
             ? data.createdAt.toMillis()
             : now;
 
@@ -138,6 +152,7 @@ export function useMessages({
             avatarId: data.avatarId || undefined,
             message: data.message || '',
             createdAt: timestamp,
+            isOptimistic: !hasServerTimestamp || docSnap.metadata.hasPendingWrites,
             attachment: data.attachment || undefined,
             reactions: Array.isArray(data.reactions) ? data.reactions : [],
             replyTo: data.replyTo || undefined,
@@ -150,7 +165,10 @@ export function useMessages({
         setFirestoreMessages(loaded);
         setLoading(false);
         setErrorMessage(null);
-        onViewLoaded?.();
+
+        if (canMarkReadRef.current && (typeof document === 'undefined' || !document.hidden)) {
+          onViewLoadedRef.current?.();
+        }
 
         // Notify on new real-time messages from other users
         if (initialLoadDoneRef.current && onNewMessageRef.current) {
@@ -187,23 +205,24 @@ export function useMessages({
     );
 
     return () => unsubscribe();
-  }, [enabled, messageLimit]);
+  }, [enabled, messageLimit, userId]);
 
-  // Map user reactions and calculate read status based on other users having loaded the view
+  // Map user reactions and calculate read status based on other users actively viewing global chat
   const messages = useMemo(() => {
     const now = Date.now();
     const cutoff = now - TWO_HOURS_MS;
     return firestoreMessages
       .filter((msg) => msg.createdAt >= cutoff)
       .map((msg) => {
-        // A message is seen/read when at least one other user has loaded the view at or after message creation
-        const readers = (otherUsers || []).filter((u) => {
-          const readTime = Math.max(u.lastReadAt || 0, u.lastSeen || 0);
-          return readTime >= (msg.createdAt - 3000);
-        });
+        // A message is seen/read only when at least one other user explicitly updated lastReadAt at or after message creation
+        const readers = msg.isOptimistic
+          ? []
+          : (otherUsers || []).filter((u) => {
+              return u.lastReadAt > 0 && u.lastReadAt >= msg.createdAt - 2000;
+            });
 
-        const isDelivered = (otherUsers || []).length > 0;
-        const isRead = readers.length > 0;
+        const isDelivered = !msg.isOptimistic && ((otherUsers || []).length > 0 || readers.length > 0);
+        const isRead = !msg.isOptimistic && readers.length > 0;
         const readBy = readers.map((r) => r.userName);
 
         return {

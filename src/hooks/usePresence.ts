@@ -26,13 +26,20 @@ interface UsePresenceOptions {
   userName: string;
   avatarId?: string;
   enabled: boolean;
+  canMarkGlobalRead?: boolean;
 }
 
 const TWO_MINUTES_MS = 2 * 60 * 1000;
 const HEARTBEAT_INTERVAL_MS = 15 * 1000; // 15 seconds
 const TIMEOUT_THRESHOLD_MS = 45 * 1000; // 45 seconds offline threshold
 
-export function usePresence({ sessionId, userName, avatarId, enabled }: UsePresenceOptions) {
+export function usePresence({
+  sessionId,
+  userName,
+  avatarId,
+  enabled,
+  canMarkGlobalRead = true,
+}: UsePresenceOptions) {
   const [onlineCount, setOnlineCount] = useState<number>(1);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
   const [otherUsers, setOtherUsers] = useState<ActiveUserReader[]>([]);
@@ -42,6 +49,9 @@ export function usePresence({ sessionId, userName, avatarId, enabled }: UsePrese
   const prevSessionsRef = useRef<Map<string, { userName: string; avatarId?: string; lastSeen: number }>>(new Map());
   const isInitialLoadRef = useRef(true);
   const connectedAtRef = useRef<Timestamp | null>(null);
+  const canMarkGlobalReadRef = useRef(canMarkGlobalRead);
+  canMarkGlobalReadRef.current = canMarkGlobalRead;
+  const lastReadMarkAtRef = useRef<number>(0);
 
   // Helper to add system notification with deduplication
   const addSystemNotice = (text: string, type: 'join' | 'leave', actorName: string) => {
@@ -79,9 +89,16 @@ export function usePresence({ sessionId, userName, avatarId, enabled }: UsePrese
     return () => clearInterval(expireTimer);
   }, []);
 
-  // 2. Function to mark view as loaded / read
-  const markViewLoaded = useCallback(async () => {
+  // 2. Function to mark global view as actively viewed / read
+  const markViewLoaded = useCallback(async (force = false) => {
     if (!enabled || !userName || !sessionId) return;
+    if (!canMarkGlobalReadRef.current) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+
+    const now = Date.now();
+    if (!force && now - lastReadMarkAtRef.current < 450) return;
+    lastReadMarkAtRef.current = now;
+
     try {
       const presenceDocRef = doc(db, 'presence', sessionId);
       const data: Record<string, any> = {
@@ -110,8 +127,16 @@ export function usePresence({ sessionId, userName, avatarId, enabled }: UsePrese
           sessionId,
           userName: userName.slice(0, 20),
           lastSeen: serverTimestamp(),
-          lastReadAt: serverTimestamp(),
         };
+
+        // Only stamp lastReadAt on initial boot if user is actually looking at Global chat
+        if (
+          isFirstTime &&
+          canMarkGlobalReadRef.current &&
+          (typeof document === 'undefined' || !document.hidden)
+        ) {
+          payload.lastReadAt = serverTimestamp();
+        }
 
         if (avatarId) {
           payload.avatarId = avatarId;
@@ -123,7 +148,8 @@ export function usePresence({ sessionId, userName, avatarId, enabled }: UsePrese
           payload.connectedAt = connectedAtRef.current;
         }
 
-        await setDoc(presenceDocRef, payload);
+        // Always merge so heartbeat never overwrites lastReadAt
+        await setDoc(presenceDocRef, payload, { merge: true });
       } catch (err) {
         console.error('Failed to register presence doc:', err);
       }
@@ -137,9 +163,11 @@ export function usePresence({ sessionId, userName, avatarId, enabled }: UsePrese
       registerPresence(false);
     }, HEARTBEAT_INTERVAL_MS);
 
-    // Refresh read state on window focus or visibility change
+    // Refresh global read state on window focus or visibility change ONLY when viewing global chat
     const handleFocus = () => {
-      markViewLoaded();
+      if (typeof document !== 'undefined' && !document.hidden && canMarkGlobalReadRef.current) {
+        markViewLoaded(true);
+      }
     };
 
     window.addEventListener('focus', handleFocus);
@@ -183,9 +211,8 @@ export function usePresence({ sessionId, userName, avatarId, enabled }: UsePrese
           const data = docSnap.data();
           const lastSeenTime = data.lastSeen?.toMillis ? data.lastSeen.toMillis() : now;
           const connectedTime = data.connectedAt?.toMillis ? data.connectedAt.toMillis() : now;
-          const lastReadTime = data.lastReadAt?.toMillis
-            ? data.lastReadAt.toMillis()
-            : lastSeenTime;
+          // Do NOT fall back to lastSeenTime — only count explicit lastReadAt timestamps
+          const lastReadTime = data.lastReadAt?.toMillis ? data.lastReadAt.toMillis() : 0;
 
           if (docSnap.id === sessionId && data.connectedAt) {
             connectedAtRef.current = data.connectedAt;
