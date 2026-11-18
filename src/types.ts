@@ -14,6 +14,7 @@ export interface ChatMessage {
   message: string;
   createdAt: number; // milliseconds timestamp for consistent sorting and rendering
   isOptimistic?: boolean;
+  isDelivered?: boolean;
   isRead?: boolean;
   readBy?: string[];
   reactions?: string[];

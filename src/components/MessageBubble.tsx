@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '../types';
 import { getAvatarForUser, TAPBACK_REACTIONS, renderReactionIcon } from '../lib/avatars';
 import { recordRecentEmoji } from '../lib/emojiStore';
-import { Reply, CornerDownRight, FileText, Download, Maximize2, Smile, Mic, Play, Pause, Info } from 'lucide-react';
+import { Reply, CornerDownRight, FileText, Download, Maximize2, Smile, Mic, Play, Pause, Info, Check, CheckCheck } from 'lucide-react';
 import { formatFileSize } from '../lib/attachments';
 import { ThemeAccent, getThemeOption } from '../lib/settings';
 import { UserAvatar } from './UserAvatar';
@@ -749,23 +749,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               )}
             </div>
 
-            {/* Apple Timestamp and Status */}
-            <div className="flex items-center justify-end gap-1.5 mt-1 mr-1 select-none">
+            {/* Apple Timestamp and Simple Status Check Symbol */}
+            <div className="flex items-center justify-end gap-1 mt-1 mr-1 select-none">
               {formattedTime && (
                 <span className="text-[10px] sm:text-[10.5px] text-neutral-400 dark:text-neutral-500 font-normal">
                   {formattedTime}
                 </span>
               )}
-              <span className="text-[10px] text-neutral-300 dark:text-neutral-700">•</span>
-              {message.isOptimistic ? (
-                <span className="text-[10px] text-neutral-400 font-medium">Sending...</span>
+              {message.isOptimistic || (!message.isRead && message.isDelivered === false) ? (
+                <span
+                  className="inline-flex items-center text-neutral-400 dark:text-neutral-500"
+                  title="Sent"
+                  aria-label="Sent"
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.2]" />
+                </span>
               ) : message.isRead ? (
-                <span className="text-[10.5px] text-[#007AFF] dark:text-[#3da0ff] font-semibold flex items-center gap-0.5">
-                  Read
+                <span
+                  className="inline-flex items-center text-[#007AFF] dark:text-[#3da0ff]"
+                  title="Read"
+                  aria-label="Read"
+                >
+                  <CheckCheck className="w-3.5 h-3.5 stroke-[2.3]" />
                 </span>
               ) : (
-                <span className="text-[10.5px] text-neutral-400 dark:text-neutral-500 font-normal">
-                  Delivered
+                <span
+                  className="inline-flex items-center text-neutral-400 dark:text-neutral-500"
+                  title="Delivered"
+                  aria-label="Delivered"
+                >
+                  <CheckCheck className="w-3.5 h-3.5 stroke-[2.2]" />
                 </span>
               )}
             </div>

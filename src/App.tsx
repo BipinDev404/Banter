@@ -532,12 +532,49 @@ export default function App() {
     chatId: activeChatId,
   });
 
-  // Determine active conversation messages (Group > Direct > Global)
-  const currentMessages = activeGroup
-    ? groupMessages
-    : activePrivateChat
-    ? privateMessages
-    : globalMessages;
+  // Determine active conversation messages (Group > Direct > Global) with live delivery/read status
+  const currentMessages = useMemo(() => {
+    if (activeGroup) {
+      const onlineGroupPeers = (otherUsers || []).filter((u) =>
+        activeGroup.members.includes(u.sessionId)
+      );
+      return groupMessages.map((msg) => {
+        if (msg.userId !== sessionId) return msg;
+        const readers = onlineGroupPeers.filter((u) => {
+          const readTime = Math.max(u.lastReadAt || 0, u.lastSeen || 0);
+          return readTime >= (msg.createdAt || 0) - 3000;
+        });
+        return {
+          ...msg,
+          isDelivered: onlineGroupPeers.length > 0,
+          isRead: readers.length > 0,
+          readBy: readers.map((r) => r.userName),
+        };
+      });
+    }
+
+    if (activePrivateChat) {
+      const partner = (otherUsers || []).find(
+        (u) => u.sessionId === activePrivateChat.partnerSessionId
+      );
+      return privateMessages.map((msg) => {
+        if (msg.userId !== sessionId) return msg;
+        const isDelivered = Boolean(partner);
+        const isRead = Boolean(
+          partner &&
+            Math.max(partner.lastReadAt || 0, partner.lastSeen || 0) >= (msg.createdAt || 0) - 3000
+        );
+        return {
+          ...msg,
+          isDelivered,
+          isRead,
+          readBy: isRead && partner ? [partner.userName] : [],
+        };
+      });
+    }
+
+    return globalMessages;
+  }, [activeGroup, activePrivateChat, groupMessages, privateMessages, globalMessages, otherUsers, sessionId]);
 
   // Play subtle 'pop' sound when a new message from another user arrives
   const lastMessageCountRef = useRef<number>(-1);

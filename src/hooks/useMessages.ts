@@ -202,11 +202,13 @@ export function useMessages({
           return readTime >= (msg.createdAt - 3000);
         });
 
+        const isDelivered = (otherUsers || []).length > 0;
         const isRead = readers.length > 0;
         const readBy = readers.map((r) => r.userName);
 
         return {
           ...msg,
+          isDelivered,
           isRead,
           readBy,
           reactions: reactionsMap[msg.id] || msg.reactions || [],
