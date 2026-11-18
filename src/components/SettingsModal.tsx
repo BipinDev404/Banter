@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   Link2,
   Palette,
+  EyeOff,
 } from 'lucide-react';
 import { getAvatarForUser } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
@@ -162,7 +163,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {nameInput.trim() || currentName}
                   </p>
                   <p className="text-[11px] text-neutral-400 mt-0.5">
-                    {settings.friendlyUiMode ? 'Friendly Home UI Active' : 'Classic Room View'} • {isDarkMode ? 'Dark Mode' : 'Light Mode'}
+                    {settings.friendlyUiMode ? 'Friendly Home UI' : 'Classic Room'} • {isDarkMode ? 'Dark' : 'Light'}{settings.ghostMode ? ' • Ghost Mode' : ''}
                   </p>
                 </div>
               </div>
@@ -262,6 +263,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div
                         className={`w-5 h-5 rounded-full bg-white transition-transform ${
                           settings.friendlyUiMode ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Ghost Mode Toggle */}
+                  <div className="flex items-center justify-between pt-3 border-t border-black/5 dark:border-white/10">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-purple-500/15 text-purple-400 flex items-center justify-center shrink-0">
+                        <EyeOff className="w-4 h-4 stroke-[2.2]" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold">Ghost Mode</span>
+                        <span className="text-[11px] text-neutral-400">
+                          Hide online status from others • Visible to friends only
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onUpdateSettings) {
+                          onUpdateSettings({
+                            ...settings,
+                            ghostMode: !settings.ghostMode,
+                          });
+                        }
+                      }}
+                      className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer shrink-0 ${
+                        settings.ghostMode ? 'bg-purple-500' : 'bg-neutral-600'
+                      }`}
+                      aria-label="Toggle Ghost Mode"
+                    >
+                      <div
+                        className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                          settings.ghostMode ? 'translate-x-5' : 'translate-x-0'
                         }`}
                       />
                     </button>

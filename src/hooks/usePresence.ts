@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   collection,
   doc,
@@ -21,12 +21,23 @@ export interface ActiveUserReader {
   lastReadAt: number;
 }
 
+interface RawPresenceEntry {
+  sessionId: string;
+  userName: string;
+  avatarId?: string;
+  lastSeen: number;
+  connectedAt: number;
+  lastReadAt: number;
+}
+
 interface UsePresenceOptions {
   sessionId: string;
   userName: string;
   avatarId?: string;
   enabled: boolean;
   canMarkGlobalRead?: boolean;
+  ghostMode?: boolean;
+  friendSessionIds?: string[];
 }
 
 const TWO_MINUTES_MS = 2 * 60 * 1000;
@@ -39,25 +50,27 @@ export function usePresence({
   avatarId,
   enabled,
   canMarkGlobalRead = true,
+  ghostMode = false,
+  friendSessionIds = [],
 }: UsePresenceOptions) {
-  const [onlineCount, setOnlineCount] = useState<number>(1);
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
-  const [otherUsers, setOtherUsers] = useState<ActiveUserReader[]>([]);
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUserItem[]>([]);
+  const [rawActiveUsers, setRawActiveUsers] = useState<RawPresenceEntry[]>([]);
+  const [ghostSessionIds, setGhostSessionIds] = useState<Set<string>>(new Set());
 
-  // Track sessions and their last known state
-  const prevSessionsRef = useRef<Map<string, { userName: string; avatarId?: string; lastSeen: number }>>(new Map());
+  // Track visible sessions and their last known state for join/leave notices
+  const prevVisibleRef = useRef<Map<string, RawPresenceEntry>>(new Map());
   const isInitialLoadRef = useRef(true);
   const connectedAtRef = useRef<Timestamp | null>(null);
   const canMarkGlobalReadRef = useRef(canMarkGlobalRead);
   canMarkGlobalReadRef.current = canMarkGlobalRead;
   const lastReadMarkAtRef = useRef<number>(0);
 
+  const friendIdSet = useMemo(() => new Set(friendSessionIds), [friendSessionIds]);
+
   // Helper to add system notification with deduplication
-  const addSystemNotice = (text: string, type: 'join' | 'leave', actorName: string) => {
+  const addSystemNotice = useCallback((text: string, type: 'join' | 'leave', actorName: string) => {
     const now = Date.now();
     setNotifications((prev) => {
-      // Prevent duplicate notice of the same type for the same user within 15 seconds
       const isDuplicate = prev.some(
         (n) => n.text === text && now - n.timestamp < 15 * 1000
       );
@@ -74,7 +87,7 @@ export function usePresence({
       const active = prev.filter((n) => now - n.timestamp < TWO_MINUTES_MS);
       return [...active, notice].slice(-10);
     });
-  };
+  }, []);
 
   // 1. Timer to auto-expire notifications after 2 minutes
   useEffect(() => {
@@ -115,11 +128,27 @@ export function usePresence({
     }
   }, [enabled, sessionId, userName, avatarId]);
 
+  // 2b. Sync Ghost Mode status to Firestore `user_status/{sessionId}`
+  useEffect(() => {
+    if (!enabled || !sessionId) return;
+    const statusDocRef = doc(db, 'user_status', sessionId);
+    setDoc(
+      statusDocRef,
+      {
+        sessionId,
+        ghostMode: Boolean(ghostMode),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    ).catch(() => {});
+  }, [enabled, sessionId, ghostMode]);
+
   // 3. Presence registration & heartbeat
   useEffect(() => {
     if (!enabled || !userName || !sessionId) return;
 
     const presenceDocRef = doc(db, 'presence', sessionId);
+    const statusDocRef = doc(db, 'user_status', sessionId);
 
     const registerPresence = async (isFirstTime = false) => {
       try {
@@ -148,22 +177,18 @@ export function usePresence({
           payload.connectedAt = connectedAtRef.current;
         }
 
-        // Always merge so heartbeat never overwrites lastReadAt
         await setDoc(presenceDocRef, payload, { merge: true });
       } catch (err) {
         console.error('Failed to register presence doc:', err);
       }
     };
 
-    // Initial registration
     registerPresence(true);
 
-    // Heartbeat every 15 seconds
     const heartbeatInterval = setInterval(() => {
       registerPresence(false);
     }, HEARTBEAT_INTERVAL_MS);
 
-    // Refresh global read state on window focus or visibility change ONLY when viewing global chat
     const handleFocus = () => {
       if (typeof document !== 'undefined' && !document.hidden && canMarkGlobalReadRef.current) {
         markViewLoaded(true);
@@ -173,10 +198,10 @@ export function usePresence({
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleFocus);
 
-    // Cleanup on window close or reload
     const handleLeave = () => {
       try {
         deleteDoc(presenceDocRef);
+        deleteDoc(statusDocRef);
       } catch {
         // non-blocking
       }
@@ -195,7 +220,34 @@ export function usePresence({
     };
   }, [sessionId, userName, avatarId, enabled, markViewLoaded]);
 
-  // 4. Listen to all active presence docs in Firestore
+  // 4. Listen to Ghost Mode statuses in `user_status`
+  useEffect(() => {
+    if (!enabled) return;
+
+    const statusCol = collection(db, 'user_status');
+    const unsubscribe = onSnapshot(
+      statusCol,
+      (snapshot) => {
+        const nextGhosts = new Set<string>();
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          if (data?.ghostMode === true) {
+            nextGhosts.add(docSnap.id);
+          }
+        });
+        setGhostSessionIds(nextGhosts);
+      },
+      (error) => {
+        if ((error as any)?.code === 'unavailable' || error.message?.includes('offline')) {
+          console.warn('Status listener waiting for network connection...');
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [enabled]);
+
+  // 5. Listen to all active presence docs in Firestore
   useEffect(() => {
     if (!enabled) return;
 
@@ -204,100 +256,33 @@ export function usePresence({
       presenceCol,
       (snapshot) => {
         const now = Date.now();
-        const currentActive = new Map<string, { userName: string; avatarId?: string; lastSeen: number; connectedAt?: number }>();
-        const readers: ActiveUserReader[] = [];
+        const activeList: RawPresenceEntry[] = [];
 
         snapshot.forEach((docSnap) => {
           const data = docSnap.data();
           const lastSeenTime = data.lastSeen?.toMillis ? data.lastSeen.toMillis() : now;
           const connectedTime = data.connectedAt?.toMillis ? data.connectedAt.toMillis() : now;
-          // Do NOT fall back to lastSeenTime — only count explicit lastReadAt timestamps
           const lastReadTime = data.lastReadAt?.toMillis ? data.lastReadAt.toMillis() : 0;
 
           if (docSnap.id === sessionId && data.connectedAt) {
             connectedAtRef.current = data.connectedAt;
           }
 
-          // Active if seen within 45 seconds
           if (now - lastSeenTime < TIMEOUT_THRESHOLD_MS) {
-            currentActive.set(docSnap.id, {
+            activeList.push({
+              sessionId: docSnap.id,
               userName: data.userName || 'Someone',
               avatarId: data.avatarId || undefined,
               lastSeen: lastSeenTime,
               connectedAt: connectedTime,
+              lastReadAt: lastReadTime,
             });
-
-            // If another user, register their read position
-            if (docSnap.id !== sessionId) {
-              readers.push({
-                sessionId: docSnap.id,
-                userName: data.userName || 'Someone',
-                avatarId: data.avatarId || undefined,
-                lastSeen: lastSeenTime,
-                lastReadAt: lastReadTime,
-              });
-            }
           } else if (now - lastSeenTime > 2 * 60 * 1000) {
-            // Delete very stale presence documents (> 2 minutes inactive) to keep collection lean
             deleteDoc(docSnap.ref).catch(() => {});
           }
         });
 
-        // Always ensure at least 1 (self) is counted
-        const total = Math.max(1, currentActive.size);
-        setOnlineCount(total);
-        setOtherUsers(readers);
-
-        // Compile complete list of online users with colorful avatars
-        const userList: OnlineUserItem[] = [];
-        // Add self
-        userList.push({
-          sessionId,
-          userName: userName || 'You',
-          isSelf: true,
-          avatar: getAvatarForUser(sessionId, userName, avatarId),
-        });
-
-        // Add other active participants
-        currentActive.forEach((user, sId) => {
-          if (sId !== sessionId) {
-            userList.push({
-              sessionId: sId,
-              userName: user.userName,
-              isSelf: false,
-              avatar: getAvatarForUser(sId, user.userName, user.avatarId),
-            });
-          }
-        });
-        setOnlineUsers(userList);
-
-        const prev = prevSessionsRef.current;
-
-        if (isInitialLoadRef.current) {
-          isInitialLoadRef.current = false;
-          // Only show join notice on initial load if someone joined in the last 5 seconds
-          currentActive.forEach((user, sId) => {
-            if (sId !== sessionId && user.connectedAt && now - user.connectedAt < 5000) {
-              addSystemNotice(`${user.userName} joined Banter`, 'join', user.userName);
-            }
-          });
-        } else {
-          // Detect who joined
-          currentActive.forEach((user, sId) => {
-            if (!prev.has(sId) && sId !== sessionId) {
-              addSystemNotice(`${user.userName} joined Banter`, 'join', user.userName);
-            }
-          });
-
-          // Detect who left
-          prev.forEach((user, sId) => {
-            if (!currentActive.has(sId) && sId !== sessionId) {
-              addSystemNotice(`${user.userName} left Banter`, 'leave', user.userName);
-            }
-          });
-        }
-
-        prevSessionsRef.current = currentActive;
+        setRawActiveUsers(activeList);
       },
       (error) => {
         if ((error as any)?.code === 'unavailable' || error.message?.includes('offline') || error.message?.includes('didn\'t respond')) {
@@ -310,6 +295,89 @@ export function usePresence({
 
     return () => unsubscribe();
   }, [enabled, sessionId]);
+
+  // 6. Filter visible active users respecting Ghost Mode (ghost users are visible ONLY to their friends)
+  const { onlineCount, otherUsers, onlineUsers, visibleOtherEntries } = useMemo(() => {
+    const visibleOthers: RawPresenceEntry[] = [];
+    const readers: ActiveUserReader[] = [];
+
+    rawActiveUsers.forEach((entry) => {
+      if (entry.sessionId === sessionId) return;
+      const isGhost = ghostSessionIds.has(entry.sessionId);
+      const isFriendUser = friendIdSet.has(entry.sessionId);
+
+      // Hide ghosted users from everyone except their confirmed friends
+      if (isGhost && !isFriendUser) return;
+
+      visibleOthers.push(entry);
+      readers.push({
+        sessionId: entry.sessionId,
+        userName: entry.userName,
+        avatarId: entry.avatarId,
+        lastSeen: entry.lastSeen,
+        lastReadAt: entry.lastReadAt,
+      });
+    });
+
+    const userList: OnlineUserItem[] = [
+      {
+        sessionId,
+        userName: userName || 'You',
+        isSelf: true,
+        avatar: getAvatarForUser(sessionId, userName, avatarId),
+      },
+      ...visibleOthers.map((u) => ({
+        sessionId: u.sessionId,
+        userName: u.userName,
+        isSelf: false,
+        avatar: getAvatarForUser(u.sessionId, u.userName, u.avatarId),
+      })),
+    ];
+
+    return {
+      onlineCount: 1 + visibleOthers.length,
+      otherUsers: readers,
+      onlineUsers: userList,
+      visibleOtherEntries: visibleOthers,
+    };
+  }, [rawActiveUsers, ghostSessionIds, friendIdSet, sessionId, userName, avatarId]);
+
+  // 7. Emit join/leave notices only for users visible to us (respecting Ghost Mode)
+  useEffect(() => {
+    if (!enabled) return;
+    const now = Date.now();
+    const currentVisibleMap = new Map<string, RawPresenceEntry>();
+    visibleOtherEntries.forEach((u) => currentVisibleMap.set(u.sessionId, u));
+
+    const prev = prevVisibleRef.current;
+
+    if (isInitialLoadRef.current) {
+      if (rawActiveUsers.length > 0) {
+        isInitialLoadRef.current = false;
+        currentVisibleMap.forEach((user) => {
+          if (user.connectedAt && now - user.connectedAt < 5000) {
+            addSystemNotice(`${user.userName} joined Banter`, 'join', user.userName);
+          }
+        });
+        prevVisibleRef.current = currentVisibleMap;
+      }
+      return;
+    }
+
+    currentVisibleMap.forEach((user, sId) => {
+      if (!prev.has(sId)) {
+        addSystemNotice(`${user.userName} joined Banter`, 'join', user.userName);
+      }
+    });
+
+    prev.forEach((user, sId) => {
+      if (!currentVisibleMap.has(sId)) {
+        addSystemNotice(`${user.userName} left Banter`, 'leave', user.userName);
+      }
+    });
+
+    prevVisibleRef.current = currentVisibleMap;
+  }, [enabled, visibleOtherEntries, rawActiveUsers.length, addSystemNotice]);
 
   return { onlineCount, notifications, otherUsers, onlineUsers, markViewLoaded };
 }

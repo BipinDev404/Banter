@@ -7,8 +7,10 @@ import {
   Link2,
   ChevronRight,
   UserPlus,
+  UserCheck,
   Check,
   Clock,
+  EyeOff,
 } from 'lucide-react';
 import { ChatMessage, FriendItem, GroupItem, PrivateChatRequest } from '../types';
 import { OnlineUserItem } from './OnlineUsersModal';
@@ -33,6 +35,10 @@ interface FriendlyHomeViewProps {
   onShareGroupLink?: (group: GroupItem) => void;
   onAcceptGroupInvite?: (req: PrivateChatRequest) => void;
   onDeclineGroupInvite?: (req: PrivateChatRequest) => void;
+  onStartOnlineChat?: (targetSessionId: string, targetUserName: string, avatarId?: string) => void;
+  onSendFriendRequest?: (targetSessionId: string, targetUserName: string, avatarId?: string) => void;
+  isFriend?: (sessionId: string) => boolean;
+  isGhostMode?: boolean;
   isDarkMode?: boolean;
 }
 
@@ -54,9 +60,14 @@ export const FriendlyHomeView: React.FC<FriendlyHomeViewProps> = ({
   onShareGroupLink,
   onAcceptGroupInvite,
   onDeclineGroupInvite,
+  onStartOnlineChat,
+  onSendFriendRequest,
+  isFriend,
+  isGhostMode = false,
   isDarkMode = true,
 }) => {
   const onlineSessionIds = new Set(onlineUsers.map((u) => u.sessionId));
+  const otherOnlineUsers = onlineUsers.filter((u) => !u.isSelf);
   const latestGlobalMsg = globalMessages[globalMessages.length - 1];
   const latestGlobalPreview = latestGlobalMsg
     ? `${latestGlobalMsg.userName}: ${latestGlobalMsg.message || (latestGlobalMsg.attachment ? `[${latestGlobalMsg.attachment.type}]` : 'Sent a message')}`
@@ -391,6 +402,121 @@ export const FriendlyHomeView: React.FC<FriendlyHomeViewProps> = ({
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* 4. DOWN: Online Users to Chat */}
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-1 gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                Online Users ({otherOnlineUsers.length})
+              </h2>
+              {isGhostMode && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400">
+                  <EyeOff className="w-2.5 h-2.5" />
+                  Ghost On
+                </span>
+              )}
+            </div>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Active now
+            </span>
+          </div>
+
+          {otherOnlineUsers.length === 0 ? (
+            <div
+              className={`p-4 rounded-[24px] border flex items-center gap-3 ${
+                isDarkMode
+                  ? 'bg-[#1c1c1e]/60 border-white/10 text-neutral-400'
+                  : 'bg-white border-black/5 text-neutral-500'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <p className="text-xs leading-snug">
+                No other users online right now. Share a temporary chat link or check Universal Chat.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {otherOnlineUsers.map((user) => {
+                const alreadyFriend = isFriend ? isFriend(user.sessionId) : false;
+
+                return (
+                  <div
+                    key={user.sessionId}
+                    onClick={() => onStartOnlineChat?.(user.sessionId, user.userName, user.avatar.id)}
+                    className={`w-full p-3.5 rounded-[22px] border flex items-center justify-between gap-3 text-left transition-all cursor-pointer active:scale-[0.99] ${
+                      isDarkMode
+                        ? 'bg-[#1c1c1e] hover:bg-[#242426] border-white/10 text-white'
+                        : 'bg-white hover:bg-neutral-50 border-black/5 text-neutral-900 shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <UserAvatar
+                        avatar={user.avatar}
+                        size="md"
+                        isOnline={true}
+                        showOnlineBadge={true}
+                      />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-sm font-bold truncate">{user.userName}</span>
+                          {alreadyFriend && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 shrink-0">
+                              <UserCheck className="w-2.5 h-2.5" />
+                              Friend
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-emerald-500 font-medium block">
+                          {alreadyFriend ? 'Online • Tap to message' : 'Online • Tap to start chat'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      className="flex items-center gap-1.5 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {!alreadyFriend && onSendFriendRequest && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSendFriendRequest(user.sessionId, user.userName, user.avatar.id)
+                          }
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer active:scale-95 ${
+                            isDarkMode
+                              ? 'bg-white/10 hover:bg-white/15 text-neutral-200'
+                              : 'bg-neutral-200 hover:bg-neutral-300 text-neutral-800'
+                          }`}
+                          title="Send friend request"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Add</span>
+                        </button>
+                      )}
+
+                      {onStartOnlineChat && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onStartOnlineChat(user.sessionId, user.userName, user.avatar.id)
+                          }
+                          className="px-3 py-1.5 rounded-xl bg-[#007AFF] hover:bg-[#0071E3] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 shadow-2xs"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 stroke-[2.2]" />
+                          <span>Chat</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

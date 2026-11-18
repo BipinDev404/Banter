@@ -138,6 +138,17 @@
         "message": { "type": "string", "maxLength": 2000 }
       },
       "required": ["groupId", "userId", "userName"]
+    },
+    "UserStatus": {
+      "title": "UserStatus",
+      "description": "User visibility preferences such as Ghost Mode",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string", "maxLength": 128 },
+        "ghostMode": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sessionId", "ghostMode"]
     }
   },
   "firestore": {
@@ -168,6 +179,10 @@
     "/group_messages/{messageId}": {
       "schema": "GroupMessage",
       "description": "Messages exchanged inside friend groups"
+    },
+    "/user_status/{sessionId}": {
+      "schema": "UserStatus",
+      "description": "Per-session Ghost Mode visibility status"
     }
   }
 }

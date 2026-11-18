@@ -415,13 +415,20 @@ export default function App() {
   const isViewingGlobalChat =
     !activePrivateChat && !activeGroup && (!settings.friendlyUiMode || friendlyView === 'chat');
 
-  // Presence hook with custom Apple vector avatar synchronization
+  const friendSessionIds = useMemo(
+    () => friends.map((f) => f.friendSessionId),
+    [friends]
+  );
+
+  // Presence hook with custom Apple vector avatar synchronization & Ghost Mode filtering
   const { onlineCount, notifications, otherUsers, onlineUsers, markViewLoaded } = usePresence({
     sessionId,
     userName,
     avatarId: settings.avatarId,
     enabled: isEntered,
     canMarkGlobalRead: isViewingGlobalChat,
+    ghostMode: settings.ghostMode,
+    friendSessionIds,
   });
 
   // Global Messages hook
@@ -753,6 +760,7 @@ export default function App() {
     }
     try {
       deleteDoc(doc(db, 'presence', sessionId)).catch(() => {});
+      deleteDoc(doc(db, 'user_status', sessionId)).catch(() => {});
     } catch (e) {
       console.error(e);
     }
@@ -1019,6 +1027,23 @@ export default function App() {
           }}
           onAcceptGroupInvite={handleAcceptConfirmationRequest}
           onDeclineGroupInvite={declinePrivateChat}
+          onStartOnlineChat={(targetId, targetName, avatarId) => {
+            const existingFriend = friends.find((f) => f.friendSessionId === targetId);
+            if (existingFriend) {
+              handleStartDirectChat(
+                existingFriend.friendSessionId,
+                existingFriend.friendName,
+                existingFriend.avatarId
+              );
+            } else {
+              requestPrivateChat(targetId, targetName);
+            }
+          }}
+          onSendFriendRequest={(targetId, targetName, avatarId) => {
+            handleSendFriendRequestWithPopup(targetId, targetName, avatarId);
+          }}
+          isFriend={isFriend}
+          isGhostMode={settings.ghostMode}
           isDarkMode={isDarkMode}
         />
       ) : (

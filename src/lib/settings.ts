@@ -18,6 +18,7 @@ export interface AppSettings {
   messageDensity: MessageDensity;
   avatarId: string;
   friendlyUiMode: boolean;
+  ghostMode: boolean;
 }
 
 export interface ThemeOption {
@@ -171,6 +172,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   messageDensity: 'comfortable',
   avatarId: 'c_fox',
   friendlyUiMode: false,
+  ghostMode: false,
 };
 
 const STORAGE_KEY = 'banter_app_settings_v2';
