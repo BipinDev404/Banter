@@ -14,12 +14,11 @@ import {
   Sun,
   LayoutGrid,
   Link2,
-  Palette,
   EyeOff,
 } from 'lucide-react';
 import { getAvatarForUser } from '../lib/avatars';
 import { UserAvatar } from './UserAvatar';
-import { AppSettings, THEME_OPTIONS } from '../lib/settings';
+import { AppSettings } from '../lib/settings';
 import { playNotificationChime, triggerNotificationVibrate } from '../lib/notifications';
 
 interface SettingsModalProps {
@@ -90,10 +89,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setSaveSuccess(true);
     setTimeout(() => {
       setSaveSuccess(false);
-      onClose();
-    }, 900);
+    }, 1500);
   };
 
+  const isNameChanged = nameInput.trim() !== currentName.trim();
   const currentAvatar = getAvatarForUser(undefined, nameInput || currentName, settings.avatarId || 'h_alex');
 
   return (
@@ -170,26 +169,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* Profile Form */}
               <form onSubmit={handleSaveProfile} className="space-y-4">
-                {/* Username Input Field */}
+                {/* Username Input Field with Inline Right-Side Save Box */}
                 <div>
                   <label className="block text-[11px] font-bold text-neutral-400 uppercase tracking-wider mb-1.5 ml-0.5">
                     Display Username
                   </label>
-                  <input
-                    type="text"
-                    value={nameInput}
-                    onChange={(e) => {
-                      setNameInput(e.target.value);
-                      if (error) setError(null);
-                    }}
-                    maxLength={20}
-                    placeholder="Enter username..."
-                    className={`w-full px-4 py-3 rounded-2xl border border-transparent focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 text-sm font-medium transition-all ${
-                      isDarkMode
-                        ? 'bg-[#2c2c2e] text-white placeholder-neutral-500'
-                        : 'bg-neutral-100 text-neutral-900 placeholder-neutral-400'
-                    }`}
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      value={nameInput}
+                      onChange={(e) => {
+                        setNameInput(e.target.value);
+                        if (error) setError(null);
+                        if (saveSuccess) setSaveSuccess(false);
+                      }}
+                      maxLength={20}
+                      placeholder="Enter username..."
+                      className={`w-full pl-4 ${
+                        isNameChanged || saveSuccess ? 'pr-20' : 'pr-4'
+                      } py-3 rounded-2xl border border-transparent focus:border-[#007AFF] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/25 text-sm font-medium transition-all ${
+                        isDarkMode
+                          ? 'bg-[#2c2c2e] text-white placeholder-neutral-500'
+                          : 'bg-neutral-100 text-neutral-900 placeholder-neutral-400'
+                      }`}
+                    />
+                    {(isNameChanged || saveSuccess) && (
+                      <button
+                        type="submit"
+                        className={`absolute right-1.5 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+                          saveSuccess
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-[#007AFF] hover:bg-[#0071E3] text-white shadow-xs'
+                        }`}
+                      >
+                        {saveSuccess ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Saved</span>
+                          </>
+                        ) : (
+                          <span>Save</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
                   {error && <p className="mt-1.5 text-xs text-red-400 font-medium ml-0.5">{error}</p>}
                 </div>
 
@@ -304,36 +327,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                     </button>
                   </div>
-
-                  {/* Theme Accent Color Swatches */}
-                  <div className="pt-3 border-t border-black/5 dark:border-white/10 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Palette className="w-3.5 h-3.5 text-neutral-400" />
-                      <span className="text-xs font-bold">Chat Accent Color</span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {THEME_OPTIONS.map((opt) => {
-                        const active = settings.themeAccent === opt.id;
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() =>
-                              onUpdateSettings?.({ ...settings, themeAccent: opt.id })
-                            }
-                            style={{ backgroundColor: opt.hex }}
-                            className={`w-6 h-6 rounded-full transition-transform cursor-pointer flex items-center justify-center ${
-                              active ? 'scale-110 ring-2 ring-white ring-offset-2 ring-offset-[#1c1c1e]' : 'opacity-80 hover:opacity-100'
-                            }`}
-                            title={opt.name}
-                            aria-label={opt.name}
-                          >
-                            {active && <Check className="w-3.5 h-3.5 text-white stroke-[3]" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                 </div>
 
                 {/* Audio & Haptics Section */}
@@ -441,21 +434,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span className="text-xs font-bold text-[#007AFF] shrink-0">Create</span>
                   </button>
                 )}
-
-                {/* Save Button */}
-                <button
-                  type="submit"
-                  className="w-full py-3.5 px-4 rounded-2xl bg-[#007AFF] hover:bg-[#0071E3] active:scale-[0.98] text-white font-extrabold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-500/20"
-                >
-                  {saveSuccess ? (
-                    <>
-                      <Check className="w-4 h-4 stroke-[2.5] text-emerald-400" />
-                      <span>Username Updated!</span>
-                    </>
-                  ) : (
-                    <span>Save Username</span>
-                  )}
-                </button>
 
                 {/* 2-Hour Auto-Purge Notice */}
                 <div className={`p-3 rounded-2xl border text-xs flex items-center gap-2.5 ${
