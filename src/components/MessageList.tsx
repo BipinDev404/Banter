@@ -177,7 +177,11 @@ export const MessageList: React.FC<MessageListProps> = ({
     };
   }, []);
 
+  const contentRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
+  const prevTypingSessionIdsRef = useRef<Set<string>>(new Set());
+  const recentTypingTimestampsRef = useRef<Map<string, number>>(new Map());
+  const morphedMessageIdsRef = useRef<Set<string>>(new Set());
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     const container = containerRef.current;
@@ -191,9 +195,10 @@ export const MessageList: React.FC<MessageListProps> = ({
     setUnreadSender(null);
   }, []);
 
-  // Keep chat pinned to bottom when container height shrinks (e.g., mobile keyboard opens)
+  // Keep chat pinned smoothly to bottom when container or content height animates (typing indicator, new message, mobile keyboard)
   useEffect(() => {
     const container = containerRef.current;
+    const content = contentRef.current;
     if (!container || typeof ResizeObserver === 'undefined') return;
 
     const observer = new ResizeObserver(() => {
@@ -202,8 +207,65 @@ export const MessageList: React.FC<MessageListProps> = ({
       }
     });
     observer.observe(container);
+    if (content) observer.observe(content);
     return () => observer.disconnect();
-  }, []);
+  }, [loading]);
+
+  const safeMessages = Array.isArray(messages) ? messages : [];
+
+  // Synchronously suppress stale typing indicator if the sender just delivered a message,
+  // preventing the typing box and message box from overlapping or bouncing up and down.
+  const now = Date.now();
+  const recentMessagesWindow = safeMessages.slice(-6);
+  const visibleTypingUsers = (typingUsers || []).filter((typer) => {
+    if (!typer || typeof typer.userName !== 'string' || !typer.userName.trim()) return false;
+    const justSentByTyper = recentMessagesWindow.some(
+      (m) =>
+        m &&
+        m.userId === typer.sessionId &&
+        now - (m.createdAt || 0) < 4000 &&
+        typer.lastTyped <= (m.createdAt || now) + 600
+    );
+    return !justSentByTyper;
+  });
+
+  // Track which latest message replaced an active typing indicator so it morphs cleanly in place
+  const latestMessage = safeMessages.length > 0 ? safeMessages[safeMessages.length - 1] : null;
+  let replacedTypingThisRender = false;
+  if (
+    latestMessage &&
+    latestMessage.id !== lastMessageIdRef.current &&
+    !isFirstLoadRef.current
+  ) {
+    const lastTypedAt = recentTypingTimestampsRef.current.get(latestMessage.userId);
+    const wasTypingRecently =
+      prevTypingSessionIdsRef.current.has(latestMessage.userId) ||
+      (typeof lastTypedAt === 'number' && now - lastTypedAt < 1800);
+
+    if (wasTypingRecently) {
+      morphedMessageIdsRef.current.add(latestMessage.id);
+      replacedTypingThisRender = true;
+      recentTypingTimestampsRef.current.delete(latestMessage.userId);
+    }
+  }
+
+  // Update typing session memory after computing handoff
+  useEffect(() => {
+    const currentNow = Date.now();
+    const nextSet = new Set<string>();
+    (visibleTypingUsers || []).forEach((u) => {
+      nextSet.add(u.sessionId);
+      recentTypingTimestampsRef.current.set(u.sessionId, currentNow);
+    });
+    prevTypingSessionIdsRef.current = nextSet;
+
+    // Prune stale entries older than 3s
+    recentTypingTimestampsRef.current.forEach((ts, key) => {
+      if (currentNow - ts > 3000) {
+        recentTypingTimestampsRef.current.delete(key);
+      }
+    });
+  }, [typingUsers, messages]);
 
   // Handle auto-scrolling & new message detection
   useEffect(() => {
@@ -231,13 +293,25 @@ export const MessageList: React.FC<MessageListProps> = ({
       const distanceFromBottom =
         container.scrollHeight - container.scrollTop - container.clientHeight;
 
-      // Rule 1: If current user sent this message, ALWAYS scroll to bottom smoothly!
+      // Rule 1: If current user sent this message, ALWAYS pin to bottom cleanly
       if (latestMsg.userId === currentUserId) {
-        scrollToBottom('smooth');
+        isNearBottomRef.current = true;
+        setHasUnreadBelow(false);
+        setUnreadSender(null);
+        requestAnimationFrame(() => {
+          if (containerRef.current) {
+            containerRef.current.scrollTop = containerRef.current.scrollHeight;
+          }
+        });
       } else {
-        // Rule 2: If another user sent a message, check if user is scrolled up or at bottom
-        if (distanceFromBottom < 180) {
-          scrollToBottom('smooth');
+        // Rule 2: If another user sent a message, keep pinned if near bottom without competing smooth scroll
+        if (distanceFromBottom < 180 || isNearBottomRef.current) {
+          isNearBottomRef.current = true;
+          requestAnimationFrame(() => {
+            if (containerRef.current) {
+              containerRef.current.scrollTop = containerRef.current.scrollHeight;
+            }
+          });
         } else {
           // Scrolled up: do NOT jump! Indicate new message below
           setHasUnreadBelow(true);
@@ -247,19 +321,24 @@ export const MessageList: React.FC<MessageListProps> = ({
     }
   }, [messages, loading, currentUserId, scrollToBottom]);
 
-  // Auto-scroll to reveal typing indicator fully when someone starts typing
+  // Keep bottom aligned smoothly when typing indicator appears near bottom
   useEffect(() => {
-    if (typingUsers && typingUsers.length > 0) {
+    if (visibleTypingUsers.length > 0) {
       const container = containerRef.current;
       if (container) {
         const distanceFromBottom =
           container.scrollHeight - container.scrollTop - container.clientHeight;
-        if (distanceFromBottom < 320) {
-          scrollToBottom('smooth');
+        if (distanceFromBottom < 260) {
+          isNearBottomRef.current = true;
+          requestAnimationFrame(() => {
+            if (containerRef.current) {
+              containerRef.current.scrollTop = containerRef.current.scrollHeight;
+            }
+          });
         }
       }
     }
-  }, [typingUsers, scrollToBottom]);
+  }, [visibleTypingUsers.length]);
 
   const handleScroll = () => {
     const container = containerRef.current;
@@ -268,7 +347,7 @@ export const MessageList: React.FC<MessageListProps> = ({
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
 
-    isNearBottomRef.current = distanceFromBottom < 120;
+    isNearBottomRef.current = distanceFromBottom < 80;
 
     if (distanceFromBottom < 80) {
       if (hasUnreadBelow) {
@@ -302,8 +381,6 @@ export const MessageList: React.FC<MessageListProps> = ({
       </div>
     );
   }
-
-  const safeMessages = Array.isArray(messages) ? messages : [];
 
   return (
     <div
@@ -341,7 +418,7 @@ export const MessageList: React.FC<MessageListProps> = ({
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto w-full flex flex-col min-h-full">
+      <div ref={contentRef} className="max-w-3xl mx-auto w-full flex flex-col min-h-full">
         {/* Load older messages button if available */}
         {hasMore && (
           <div className="flex justify-center pb-2">
@@ -358,68 +435,81 @@ export const MessageList: React.FC<MessageListProps> = ({
           </div>
         )}
 
-        {/* Empty State when no messages exist */}
-        {safeMessages.length === 0 ? (
-          <div className="flex-1" />
-        ) : (
-          <div className="flex-1 flex flex-col justify-end space-y-1 mt-auto">
-            <AnimatePresence initial={false}>
-              {safeMessages.map((msg, index) => {
-                if (!msg) return null;
-                const prevMsg = index > 0 ? safeMessages[index - 1] : null;
+        {/* Message Stack + Integrated Typing Indicator */}
+        <div className="flex-1 flex flex-col justify-end space-y-1 mt-auto">
+          <AnimatePresence initial={false}>
+            {safeMessages.map((msg, index) => {
+              if (!msg) return null;
+              const prevMsg = index > 0 ? safeMessages[index - 1] : null;
+              const isSelf = msg.userId === currentUserId;
+              const isMorphedFromTyping = morphedMessageIdsRef.current.has(msg.id);
 
-                const showDateDivider =
-                  !prevMsg ||
-                  Math.abs((msg.createdAt || 0) - (prevMsg?.createdAt || 0)) > 30 * 60 * 1000;
+              const showDateDivider =
+                !prevMsg ||
+                Math.abs((msg.createdAt || 0) - (prevMsg?.createdAt || 0)) > 30 * 60 * 1000;
 
-                return (
-                  <React.Fragment key={msg.id || index}>
-                    {showDateDivider && msg.createdAt && (
-                      <div className="flex justify-center my-4 select-none">
-                        <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
-                          {formatDividerDate(msg.createdAt)}
-                        </span>
-                      </div>
-                    )}
+              return (
+                <motion.div
+                  key={msg.id || index}
+                  initial={
+                    isMorphedFromTyping
+                      ? { opacity: 0.45, scale: 0.86, y: 2 }
+                      : { opacity: 0, y: 8, scale: 0.97 }
+                  }
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.14 } }}
+                  transition={
+                    isMorphedFromTyping
+                      ? { duration: 0.24, ease: [0.22, 1, 0.36, 1] }
+                      : { duration: 0.18, ease: [0.22, 1, 0.36, 1] }
+                  }
+                  style={{
+                    transformOrigin: isSelf ? 'bottom right' : 'bottom left',
+                  }}
+                >
+                  {showDateDivider && msg.createdAt && (
+                    <div className="flex justify-center my-4 select-none">
+                      <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider">
+                        {formatDividerDate(msg.createdAt)}
+                      </span>
+                    </div>
+                  )}
 
-                    <motion.div
-                      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.96, y: -8 }}
-                      transition={{ duration: 0.16, ease: 'easeOut' }}
-                    >
-                      <MessageBubble
-                        message={msg}
-                        isSelf={msg.userId === currentUserId}
-                        themeAccent="blue"
-                        onReact={(msgId, emoji) => {
-                          onReact(msgId, emoji);
-                          setActiveReactionMsgId(null);
-                        }}
-                        onReplyTo={(userName, textSnippet) => {
-                          onReplyTo(userName, textSnippet);
-                          setActiveReactionMsgId(null);
-                        }}
-                        onOpenImage={onOpenImage}
-                        onOpenActionsModal={onOpenActionsModal}
-                        isDarkMode={isDarkMode}
-                        allParticipantNames={participantNames}
-                        showTapbackPicker={activeReactionMsgId === msg.id}
-                        onToggleTapbackPicker={() => {
-                          setActiveReactionMsgId((prev) => (prev === msg.id ? null : msg.id));
-                        }}
-                        onCloseTapbackPicker={() => setActiveReactionMsgId(null)}
-                      />
-                    </motion.div>
-                  </React.Fragment>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        )}
+                  <MessageBubble
+                    message={msg}
+                    isSelf={isSelf}
+                    themeAccent="blue"
+                    onReact={(msgId, emoji) => {
+                      onReact(msgId, emoji);
+                      setActiveReactionMsgId(null);
+                    }}
+                    onReplyTo={(userName, textSnippet) => {
+                      onReplyTo(userName, textSnippet);
+                      setActiveReactionMsgId(null);
+                    }}
+                    onOpenImage={onOpenImage}
+                    onOpenActionsModal={onOpenActionsModal}
+                    isDarkMode={isDarkMode}
+                    allParticipantNames={participantNames}
+                    showTapbackPicker={activeReactionMsgId === msg.id}
+                    onToggleTapbackPicker={() => {
+                      setActiveReactionMsgId((prev) => (prev === msg.id ? null : msg.id));
+                    }}
+                    onCloseTapbackPicker={() => setActiveReactionMsgId(null)}
+                  />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
 
-        <TypingIndicator typingUsers={typingUsers} isDarkMode={isDarkMode} />
-        <div ref={bottomRef} className="h-6 shrink-0" />
+          <TypingIndicator
+            typingUsers={visibleTypingUsers}
+            isDarkMode={isDarkMode}
+            instantExit={replacedTypingThisRender}
+          />
+        </div>
+
+        <div ref={bottomRef} className="h-4 shrink-0" />
       </div>
 
       {showScrollBottom && (
